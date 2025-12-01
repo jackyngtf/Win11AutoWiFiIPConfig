@@ -1,0 +1,10 @@
+# Logs
+*.log
+NetworkEventHandler.log
+
+# Configuration (Sensitive)
+NetworkConfig.ps1
+
+# Temporary files
+*.tmp
+
