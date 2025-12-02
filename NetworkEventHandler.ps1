@@ -94,7 +94,9 @@ function Get-CurrentWiFiSSID {
 function Convert-SubnetMaskToPrefix {
     param ([string]$SubnetMask)
     $ip = [System.Net.IPAddress]$SubnetMask
-    $binary = [System.Convert]::ToString($ip.Address, 2).PadLeft(32, '0')
+    # Get bytes in correct order (big-endian)
+    $bytes = $ip.GetAddressBytes()
+    $binary = -join ($bytes | ForEach-Object { [Convert]::ToString($_, 2).PadLeft(8, '0') })
     $prefix = $binary.IndexOf('0')
     if ($prefix -eq -1) { return 32 } else { return $prefix }
 }
