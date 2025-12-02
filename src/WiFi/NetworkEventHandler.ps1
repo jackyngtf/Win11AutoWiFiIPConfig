@@ -7,8 +7,9 @@ param (
     [string]$TriggerEvent = "Auto"  # "Connect", "Disconnect", or "Auto"
 )
 
-# Log file for troubleshooting
-$logPath = Join-Path $PSScriptRoot "NetworkEventHandler.log"
+# Log file for troubleshooting (centralized logs folder)
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$logPath = Join-Path $projectRoot "logs\WiFi-NetworkEventHandler.log"
 
 # Configuration - Load from main script
 $scriptPath = $PSScriptRoot
@@ -47,7 +48,7 @@ function Write-Log {
         # Clean old log files based on retention policy
         if ($LogRetentionDays -gt 0) {
             $cutoffDate = (Get-Date).AddDays(-$LogRetentionDays)
-            Get-ChildItem -Path $PSScriptRoot -Filter "NetworkEventHandler_*.log" | 
+            Get-ChildItem -Path (Join-Path $projectRoot "logs") -Filter "WiFi-NetworkEventHandler_*.log" | 
             Where-Object { $_.LastWriteTime -lt $cutoffDate } | 
             Remove-Item -Force
         }

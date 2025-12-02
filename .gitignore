@@ -1,5 +1,7 @@
 # PowerShell
 *.log
+logs/*
+!logs/.gitkeep
 *.psd1
 *.psm1
 *.ps1xml

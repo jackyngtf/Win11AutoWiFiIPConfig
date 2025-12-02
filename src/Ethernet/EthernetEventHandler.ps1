@@ -4,7 +4,8 @@
 # ============================================================================
 
 $ScriptPath = $PSScriptRoot
-$LogFile = Join-Path $ScriptPath "EthernetEventHandler.log"
+$ProjectRoot = Split-Path -Parent $ScriptPath
+$LogFile = Join-Path $ProjectRoot "logs\Ethernet-EventHandler.log"
 $ConfigFile = Join-Path $ScriptPath "EthernetConfig.ps1"
 
 # ============================================================================
@@ -32,7 +33,7 @@ function Write-Log {
         # Clean old log files based on retention policy
         if ($LogRetentionDays -gt 0) {
             $cutoffDate = (Get-Date).AddDays(-$LogRetentionDays)
-            Get-ChildItem -Path $ScriptPath -Filter "EthernetEventHandler_*.log" | 
+            Get-ChildItem -Path (Join-Path $ProjectRoot "logs") -Filter "Ethernet-EventHandler_*.log" | 
             Where-Object { $_.LastWriteTime -lt $cutoffDate } | 
             Remove-Item -Force
         }

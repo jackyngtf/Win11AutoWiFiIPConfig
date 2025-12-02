@@ -2,7 +2,7 @@
 
 **Intelligent, Event-Driven Network Configuration for Windows**
 
-A professional PowerShell automation suite that eliminates manual IP configuration for corporate environments. This project provides intelligent, automated IP management for both WiFi and Ethernet adapters, ensuring seamless connectivity without DHCP conflicts or manual intervention.
+A PowerShell automation suite that eliminates manual IP configuration for corporate environments. This project provides intelligent, automated IP management for both WiFi and Ethernet adapters, ensuring seamless connectivity without DHCP conflicts or manual intervention.
 
 ---
 
@@ -51,14 +51,28 @@ A professional PowerShell automation suite that eliminates manual IP configurati
 │   ├── WiFi/                  # WiFi automation module
 │   │   ├── NetworkEventHandler.ps1
 │   │   ├── NetworkConfig.ps1
-│   │   └── Setup-NetworkEventTrigger.ps1
+│   │   ├── NetworkConfig.example.ps1
+│   │   ├── Setup-NetworkEventTrigger.ps1
+│   │   ├── Uninstall-NetworkEventTrigger.ps1
+│   │   ├── README.md
+│   │   └── [utility scripts...]
 │   ├── Ethernet/              # Ethernet automation module
 │   │   ├── EthernetEventHandler.ps1
 │   │   ├── EthernetConfig.ps1
+│   │   ├── EthernetConfig.example.ps1
 │   │   ├── Setup-EthernetEventTrigger.ps1
+│   │   ├── Uninstall-EthernetEventTrigger.ps1
+│   │   ├── Apply-EthernetConfig.ps1
 │   │   └── README.md
 │   └── GUI/                   # (Coming Soon) User Interface
-├── docs/                      # Documentation and test results
+├── logs/                      # Centralized log files
+│   ├── WiFi-NetworkEventHandler.log
+│   └── Ethernet-EventHandler.log
+├── docs/                      # Advanced documentation
+│   ├── AdvancedConfiguration.md
+│   ├── ITAdminGuide.md
+│   ├── Uninstallation.md
+│   └── Network-Test-Results.md
 └── README.md                  # This file
 ```
 
@@ -198,6 +212,20 @@ $MaxLogSizeMB = 5  # Rotate at 5 MB
 - **Logs**: Check the respective `.log` files for detailed execution history
 - **Permissions**: All setup scripts require Administrator privileges
 - **Test manually**: Run the handler scripts directly to test configuration
+
+
+---
+
+## 📚 Documentation
+
+### User Documentation
+- **[README.md](README.md)** - This file (quick start guide)
+- **[Advanced Configuration](docs/AdvancedConfiguration.md)** - Auto-connect, logging, interface priorities, security
+- **[Uninstallation Guide](docs/Uninstallation.md)** - Complete removal procedures
+
+### IT Administrator Documentation
+- **[IT Admin Guide](docs/ITAdminGuide.md)** - Architecture, deployment models, monitoring, enterprise deployment
+- **[Test Results](docs/Network-Test-Results.md)** - Configuration verification and testing
 
 ---
 
