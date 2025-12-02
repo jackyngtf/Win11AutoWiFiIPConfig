@@ -1,10 +1,17 @@
-# Logs
+# PowerShell
 *.log
-NetworkEventHandler.log
+*.psd1
+*.psm1
+*.ps1xml
 
-# Configuration (Sensitive)
-NetworkConfig.ps1
+# User Configuration (Don't commit secrets!)
+src/WiFi/NetworkConfig.ps1
+src/Ethernet/EthernetConfig.ps1
 
-# Temporary files
-*.tmp
+# Editor
+.vscode/
+.idea/
 
+# OS
+Thumbs.db
+Desktop.ini
