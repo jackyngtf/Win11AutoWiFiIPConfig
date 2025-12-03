@@ -36,3 +36,7 @@ foreach ($Adapter in $Adapters) {
 }
 
 Write-Host "Uninstall Complete. Ethernet adapters are back to default (DHCP)." -ForegroundColor Green
+
+# 3. Re-enable WiFi (in case it was disabled by Auto-Switch)
+Write-Host "Ensuring WiFi is enabled..." -ForegroundColor Cyan
+Enable-NetAdapter -Name "Wi-Fi" -Confirm:$false -ErrorAction SilentlyContinue

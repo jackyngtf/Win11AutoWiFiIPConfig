@@ -41,6 +41,34 @@ netsh wlan set profileparameter name="YourNetworkName" connectionmode=auto
 
 ---
 
+## 🔄 Ethernet WiFi Auto-Switch
+
+The Ethernet module can automatically disable WiFi when a stable Ethernet connection is detected, and re-enable it when Ethernet is lost.
+
+### Configuration (`EthernetConfig.ps1`)
+
+```powershell
+# Enable the feature
+$EnableWiFiAutoSwitch = $true
+
+# Define WAN targets to verify Internet connectivity
+$WanTestTargets = @("8.8.8.8", "1.1.1.1")
+
+# Delay (Debounce) Logic
+# Wait X seconds before re-enabling WiFi to prevent flapping
+$WiFiAutoSwitchDelaySeconds = 5
+```
+
+### How it Works
+1. **Ethernet Connects:** Script verifies Internet access (WAN targets).
+2. **If Stable:** WiFi is disabled to save power and ensure traffic goes over Ethernet.
+3. **Ethernet Disconnects:**
+   - If `$WiFiAutoSwitchDelaySeconds` > 0: Script waits for the delay.
+   - Checks Ethernet again.
+   - If still down: WiFi is re-enabled.
+
+---
+
 ## 📋 Log Management Configuration
 
 Both WiFi and Ethernet modules support advanced log rotation and retention. Configure in the respective `Config.ps1` files:

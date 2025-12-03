@@ -237,6 +237,19 @@ try {
             Disable-NetAdapter -Name "Wi-Fi" -Confirm:$false -ErrorAction SilentlyContinue
         }
         else {
+            # Debounce / Delay Logic
+            if ($null -ne $WiFiAutoSwitchDelaySeconds -and $WiFiAutoSwitchDelaySeconds -gt 0) {
+                Write-Log "  [WAIT] Ethernet down. Waiting $WiFiAutoSwitchDelaySeconds seconds before enabling WiFi..."
+                Start-Sleep -Seconds $WiFiAutoSwitchDelaySeconds
+                
+                # Re-check Connectivity
+                if ($ConnectedAdapters -and (Test-Connectivity -Targets $WanTestTargets -Threshold $WanSuccessThreshold)) {
+                    Write-Log "  [RECOVERED] Ethernet connectivity restored. Keeping WiFi disabled."
+                    Disable-NetAdapter -Name "Wi-Fi" -Confirm:$false -ErrorAction SilentlyContinue
+                    return
+                }
+            }
+
             Write-Log "  [UNSTABLE] Ethernet has NO connectivity. Enabling WiFi..."
             Enable-NetAdapter -Name "Wi-Fi" -Confirm:$false -ErrorAction SilentlyContinue
         }

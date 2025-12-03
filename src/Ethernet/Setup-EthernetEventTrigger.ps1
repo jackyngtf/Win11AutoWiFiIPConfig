@@ -85,5 +85,5 @@ Write-Host "It will run whenever a network connects."
 
 # Run the handler immediately to apply settings now
 Write-Host "Running initial configuration check..." -ForegroundColor Cyan
-Start-Process "PowerShell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`"" -Verb RunAs -Wait
+& PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "$ScriptPath"
 Write-Host "Initial check complete. Check EthernetEventHandler.log for details." -ForegroundColor Green

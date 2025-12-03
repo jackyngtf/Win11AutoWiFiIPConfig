@@ -40,6 +40,11 @@ $WanTestTargets = @("8.8.8.8", "1.1.1.1", "www.baidu.com")
 # Minimum number of targets that must reply to consider WAN "Up"
 $WanSuccessThreshold = 1
 
+# Delay (in seconds) before re-enabling WiFi after Ethernet loss
+# Useful to prevent WiFi flapping during short Ethernet blips
+# Set to 0 for instant switching (default)
+$WiFiAutoSwitchDelaySeconds = 0
+
 # ============================================================================
 # Global Settings
 # ============================================================================

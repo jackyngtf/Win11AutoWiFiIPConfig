@@ -56,6 +56,7 @@ $DeviceEthernetMap = @{
 ```powershell
 $EnableWiFiAutoSwitch = $true
 $WanTestTargets = @("8.8.8.8", "1.1.1.1")
+$WiFiAutoSwitchDelaySeconds = 5 # Wait 5s before enabling WiFi (prevents flapping)
 ```
 
 ## ❓ Troubleshooting
