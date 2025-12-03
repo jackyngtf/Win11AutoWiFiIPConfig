@@ -69,6 +69,37 @@ $WiFiAutoSwitchDelaySeconds = 5
 
 ---
 
+---
+
+## ⏳ Temporary DHCP Override
+
+You can temporarily bypass the Static IP enforcement and use DHCP for a specific duration (e.g., while traveling).
+
+### Usage
+Run the `Set-DhcpOverride.ps1` tool located in `src/`:
+
+```powershell
+# Enable DHCP on Ethernet for 7 days
+.\src\Set-DhcpOverride.ps1 -Interface Ethernet -Days 7
+
+# Enable DHCP on WiFi for 24 hours (1 day)
+.\src\Set-DhcpOverride.ps1 -Interface Wi-Fi -Days 1
+
+# Enable DHCP on ALL interfaces for 3 days
+.\src\Set-DhcpOverride.ps1 -Interface All -Days 3
+
+# Clear override (Revert to Static IP immediately)
+.\src\Set-DhcpOverride.ps1 -Interface Ethernet -Clear
+```
+
+### How it Works
+1.  **State File:** Stores expiry dates in `src/DhcpOverride.state.json`.
+2.  **Check:** Every time a network connects, the script checks this file.
+3.  **Active:** If the override is active, it enables DHCP and **exits** (skipping Static IP logic).
+4.  **Expired:** If the time has passed, it automatically reverts to normal Static IP behavior.
+
+---
+
 ## 📋 Log Management Configuration
 
 Both WiFi and Ethernet modules support advanced log rotation and retention. Configure in the respective `Config.ps1` files:

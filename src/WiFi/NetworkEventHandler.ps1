@@ -62,6 +62,40 @@ function Write-Log {
     }
 }
 
+# ===========================================================================
+# CHECK FOR TEMPORARY DHCP OVERRIDE
+# ===========================================================================
+$StateFile = Join-Path (Split-Path -Parent $PSScriptRoot) "DhcpOverride.state.json"
+if (Test-Path $StateFile) {
+    try {
+        $State = Get-Content $StateFile | ConvertFrom-Json
+        if ($State."Wi-Fi") {
+            $Expiry = [DateTime]::Parse($State."Wi-Fi")
+            if ((Get-Date) -lt $Expiry) {
+                Write-Log "⚠️ TEMPORARY DHCP OVERRIDE ACTIVE (Expires: $($Expiry))"
+                Write-Log "  Skipping Static IP enforcement. Ensuring DHCP is enabled..."
+                
+                # Ensure DHCP is enabled
+                Set-NetIPInterface -InterfaceAlias "Wi-Fi" -Dhcp Enabled -ErrorAction SilentlyContinue
+                Set-DnsClientServerAddress -InterfaceAlias "Wi-Fi" -ResetServerAddresses -ErrorAction SilentlyContinue
+                
+                Write-Log "  [OK] DHCP Enforced (Override Mode)."
+                exit # EXIT SCRIPT
+            }
+            else {
+                Write-Log "ℹ️ DHCP Override Expired ($($Expiry)). Reverting to normal logic."
+                # Cleanup expired entry
+                $State.PSObject.Properties.Remove("Wi-Fi")
+                $State | ConvertTo-Json | Set-Content $StateFile
+            }
+        }
+    }
+    catch {
+        Write-Log "Error reading override state: $_"
+    }
+}
+# ===========================================================================
+
 # Function to get current WiFi SSID
 function Get-CurrentWiFiSSID {
     try {

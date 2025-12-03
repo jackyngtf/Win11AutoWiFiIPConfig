@@ -86,6 +86,42 @@ try {
     }
     . $ConfigFile
 
+    # ===========================================================================
+    # CHECK FOR TEMPORARY DHCP OVERRIDE
+    # ===========================================================================
+    $StateFile = Join-Path (Split-Path -Parent $ScriptPath) "DhcpOverride.state.json"
+    if (Test-Path $StateFile) {
+        try {
+            $State = Get-Content $StateFile | ConvertFrom-Json
+            if ($State.Ethernet) {
+                $Expiry = [DateTime]::Parse($State.Ethernet)
+                if ((Get-Date) -lt $Expiry) {
+                    Write-Log "⚠️ TEMPORARY DHCP OVERRIDE ACTIVE (Expires: $($Expiry))" "WARNING"
+                    Write-Log "  Skipping Static IP enforcement. Ensuring DHCP is enabled..."
+                    
+                    # Ensure DHCP is enabled on connected adapters
+                    $ConnectedAdapters = Get-NetAdapter | Where-Object { $_.PhysicalMediaType -eq "802.3" -and $_.Status -eq "Up" }
+                    foreach ($Adapter in $ConnectedAdapters) {
+                        Set-NetIPInterface -InterfaceAlias $Adapter.Name -Dhcp Enabled -ErrorAction SilentlyContinue
+                        Set-DnsClientServerAddress -InterfaceAlias $Adapter.Name -ResetServerAddresses -ErrorAction SilentlyContinue
+                    }
+                    Write-Log "  [OK] DHCP Enforced (Override Mode)."
+                    exit # EXIT SCRIPT
+                }
+                else {
+                    Write-Log "ℹ️ DHCP Override Expired ($($Expiry)). Reverting to normal logic."
+                    # Cleanup expired entry
+                    $State.PSObject.Properties.Remove("Ethernet")
+                    $State | ConvertTo-Json | Set-Content $StateFile
+                }
+            }
+        }
+        catch {
+            Write-Log "Error reading override state: $_" "WARNING"
+        }
+    }
+    # ===========================================================================
+
     # 2. Identify Device & Config
     $Hostname = $env:COMPUTERNAME
     $TargetConfig = $null

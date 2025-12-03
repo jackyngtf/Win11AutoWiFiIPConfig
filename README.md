@@ -40,6 +40,11 @@ A PowerShell automation suite that eliminates manual IP configuration for corpor
 - **WiFi Auto-Switch**: Automatically disables WiFi when a stable Ethernet connection is detected
 - **Conflict Prevention**: "First-Come-First-Serve" logic handles multiple adapters
 
+### ⏳ Temporary DHCP Override
+- **Travel Friendly**: Easily enable DHCP for X days (e.g., 1 week) using `Set-DhcpOverride.ps1`
+- **Auto-Revert**: Automatically reverts to Static IP when the duration expires
+- **Granular Control**: Set overrides for WiFi, Ethernet, or both
+
 ---
 
 ## 📂 Project Structure
