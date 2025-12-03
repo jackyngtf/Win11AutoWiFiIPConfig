@@ -96,7 +96,7 @@ try {
             if ($State.Ethernet) {
                 $Expiry = [DateTime]::Parse($State.Ethernet)
                 if ((Get-Date) -lt $Expiry) {
-                    Write-Log "⚠️ TEMPORARY DHCP OVERRIDE ACTIVE (Expires: $($Expiry))" "WARNING"
+                    Write-Log "TEMPORARY DHCP OVERRIDE ACTIVE (Expires: $Expiry)" "WARNING"
                     Write-Log "  Skipping Static IP enforcement. Ensuring DHCP is enabled..."
                     
                     # Ensure DHCP is enabled on connected adapters
@@ -109,7 +109,7 @@ try {
                     exit # EXIT SCRIPT
                 }
                 else {
-                    Write-Log "ℹ️ DHCP Override Expired ($($Expiry)). Reverting to normal logic."
+                    Write-Log "DHCP Override Expired ($Expiry). Reverting to normal logic."
                     # Cleanup expired entry
                     $State.PSObject.Properties.Remove("Ethernet")
                     $State | ConvertTo-Json | Set-Content $StateFile
@@ -250,7 +250,6 @@ try {
                 }
             }
                 
-
 
         }
         catch {
