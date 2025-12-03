@@ -1,5 +1,5 @@
 # ============================================================================
-# Ethernet Event Handler
+# Ethernet Event Handler (Device-Centric)
 # Triggered by Network Profile Events (Event ID 10000)
 # ============================================================================
 
@@ -14,10 +14,8 @@ $ConfigFile = Join-Path $ScriptPath "EthernetConfig.ps1"
 function Write-Log {
     param ([string]$Message, [string]$Type = "INFO")
     
-    # Check if logging is enabled
-    if (-not $EnableLogging) {
-        return
-    }
+    # Check if logging is enabled (default to true if variable missing)
+    if ($null -ne $EnableLogging -and -not $EnableLogging) { return }
 
     try {
         # Rotate log if it exceeds max size
@@ -26,11 +24,10 @@ function Write-Log {
             if ($logSizeMB -gt $MaxLogSizeMB) {
                 $archivePath = $LogFile -replace '\.log$', "_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
                 Move-Item -Path $LogFile -Destination $archivePath -Force
-                Write-Host "Log rotated: $archivePath" -ForegroundColor Yellow
             }
         }
         
-        # Clean old log files based on retention policy
+        # Clean old log files
         if ($LogRetentionDays -gt 0) {
             $cutoffDate = (Get-Date).AddDays(-$LogRetentionDays)
             Get-ChildItem -Path (Join-Path $ProjectRoot "logs") -Filter "Ethernet-EventHandler_*.log" | 
@@ -40,22 +37,43 @@ function Write-Log {
 
         $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
         $LogEntry = "[$Timestamp] [$Type] $Message"
-        
-        # Write to file
         Add-Content -Path $LogFile -Value $LogEntry
         
-        # Write to console with color
-        if ($Type -eq "ERROR") {
-            Write-Host $LogEntry -ForegroundColor Red
-        }
-        else {
-            Write-Host $LogEntry -ForegroundColor Cyan
-        }
+        $Color = if ($Type -eq "ERROR") { "Red" } elseif ($Type -eq "WARNING") { "Yellow" } else { "Cyan" }
+        Write-Host $LogEntry -ForegroundColor $Color
     }
     catch {
-        # Silent fail - don't break the script if logging fails
         Write-Host "Logging failed: $_" -ForegroundColor Red
     }
+}
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+function Set-DhcpMode {
+    param ($InterfaceAlias, $Metric = 20)
+    Write-Log "  Enforcing DHCP on $InterfaceAlias (Metric: $Metric)..."
+    try {
+        # Enable DHCP
+        Set-NetIPInterface -InterfaceAlias $InterfaceAlias -Dhcp Enabled -InterfaceMetric $Metric -ErrorAction SilentlyContinue
+        Set-DnsClientServerAddress -InterfaceAlias $InterfaceAlias -ResetServerAddresses -ErrorAction SilentlyContinue
+        Write-Log "  [OK] DHCP Enabled on $InterfaceAlias"
+    }
+    catch {
+        Write-Log "  [ERROR] Failed to set DHCP on $InterfaceAlias: $_" "ERROR"
+    }
+}
+
+function Test-Connectivity {
+    param ($Targets, $Threshold = 1)
+    $SuccessCount = 0
+    foreach ($Target in $Targets) {
+        if (Test-Connection -ComputerName $Target -Count 1 -Quiet -ErrorAction SilentlyContinue) {
+            $SuccessCount++
+        }
+    }
+    return ($SuccessCount -ge $Threshold)
 }
 
 # ============================================================================
@@ -63,7 +81,7 @@ function Write-Log {
 # ============================================================================
 
 try {
-    Write-Log "Ethernet Event Handler Started"
+    Write-Log "Ethernet Event Handler Started (Device-Centric Mode)"
 
     # 1. Load Configuration
     if (-not (Test-Path $ConfigFile)) {
@@ -72,105 +90,116 @@ try {
     }
     . $ConfigFile
 
-    # 2. Get Connected Ethernet Adapters
-    # We look for adapters that are Up and are Ethernet (Type 6)
-    $Adapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.PhysicalMediaType -eq "802.3" }
+    # 2. Identify Device & Config
+    $Hostname = $env:COMPUTERNAME
+    $TargetConfig = $null
+    
+    # Case-insensitive lookup
+    foreach ($Key in $DeviceEthernetMap.Keys) {
+        if ($Key -eq $Hostname) {
+            $TargetConfig = $DeviceEthernetMap[$Key]
+            break
+        }
+    }
 
+    if ($TargetConfig) {
+        Write-Log "Device Identified: $Hostname (Config Found: $($TargetConfig.Description))"
+    }
+    else {
+        Write-Log "Device Identified: $Hostname (No Static IP Configured)"
+    }
+
+    # 3. Get Connected Adapters & Select Winner
+    $Adapters = Get-NetAdapter | Where-Object { $_.Status -eq "Up" -and $_.PhysicalMediaType -eq "802.3" }
+    
     if (-not $Adapters) {
         Write-Log "No active Ethernet adapters found."
+        # Ensure WiFi is enabled if no Ethernet
+        if ($EnableWiFiAutoSwitch) { Enable-NetAdapter -Name "Wi-Fi" -ErrorAction SilentlyContinue }
         exit
     }
 
-    foreach ($Adapter in $Adapters) {
-        $MacAddress = $Adapter.MacAddress -replace "-", "-" # Ensure format matches config (dashes)
-        Write-Log "Checking Adapter: $($Adapter.Name) | MAC: $MacAddress"
+    # Sort: LinkSpeed Descending, then InterfaceIndex Ascending
+    $SortedAdapters = $Adapters | Sort-Object LinkSpeed -Descending | Sort-Object InterfaceIndex
+    $Winner = $SortedAdapters[0]
+    $Losers = $SortedAdapters | Select-Object -Skip 1
 
-        if ($EthernetConfigs.ContainsKey($MacAddress)) {
-            # Match Found - Apply Static IP
-            $Config = $EthernetConfigs[$MacAddress]
-            Write-Log "MATCH FOUND! Applying configuration for: $($Config.Description)"
+    Write-Log "Winner Selected: $($Winner.Name) ($($Winner.LinkSpeed))"
+    if ($Losers) { Write-Log "Losers (Forced DHCP): $($Losers.Name -join ', ')" }
 
-            # Check if already configured to avoid redundant re-application
-            $CurrentIP = (Get-NetIPAddress -InterfaceAlias $Adapter.Name -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
+    # 4. Handle Losers (Conflict Resolution)
+    foreach ($Loser in $Losers) {
+        Set-DhcpMode -InterfaceAlias $Loser.Name -Metric 50
+    }
+
+    # 5. Handle Winner
+    if ($TargetConfig) {
+        # Try to apply Static IP
+        Write-Log "Applying Static IP to Winner: $($TargetConfig.IPAddress)"
+        
+        try {
+            # Check if already set correctly
+            $CurrentIP = (Get-NetIPAddress -InterfaceAlias $Winner.Name -AddressFamily IPv4 -ErrorAction SilentlyContinue).IPAddress
             
-            if ($CurrentIP -eq $Config.IPAddress) {
-                Write-Log "IP $CurrentIP is already active. Skipping."
+            if ($CurrentIP -ne $TargetConfig.IPAddress) {
+                # Reset & Apply
+                New-NetIPAddress -InterfaceAlias $Winner.Name -IPAddress $TargetConfig.IPAddress -PrefixLength 24 -ErrorAction SilentlyContinue | Out-Null
+                
+                # Add Gateway (Separate Route to avoid PolicyStore error)
+                if ($TargetConfig.Gateway) {
+                    New-NetRoute -InterfaceAlias $Winner.Name -DestinationPrefix "0.0.0.0/0" -NextHop $TargetConfig.Gateway -ErrorAction SilentlyContinue | Out-Null
+                }
+                
+                # Set DNS
+                Set-DnsClientServerAddress -InterfaceAlias $Winner.Name -ServerAddresses $TargetConfig.DNS -ErrorAction SilentlyContinue
+                
+                # Set Metric (High Priority)
+                Set-NetIPInterface -InterfaceAlias $Winner.Name -InterfaceMetric 5 -ErrorAction SilentlyContinue
+                
+                Write-Log "  [OK] Static IP Configuration Applied"
             }
             else {
-                Write-Log "Applying Static IP: $($Config.IPAddress)"
-                
-                try {
-                    # Step 1: Remove all existing routes (including default gateway)
-                    Write-Log "Removing existing routes..."
-                    Get-NetRoute -InterfaceAlias $Adapter.Name -AddressFamily IPv4 -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false -ErrorAction SilentlyContinue
-                    Write-Log "Routes removed successfully"
-                    
-                    # Step 2: Disable DHCP
-                    Write-Log "Disabling DHCP..."
-                    Set-NetIPInterface -InterfaceAlias $Adapter.Name -Dhcp Disabled -ErrorAction Stop
-                    Write-Log "DHCP disabled successfully"
+                Write-Log "  [OK] Static IP already active"
+            }
 
-                    # Step 3: Remove all existing IPs
-                    Write-Log "Removing existing IP addresses..."
-                    Get-NetIPAddress -InterfaceAlias $Adapter.Name -AddressFamily IPv4 -ErrorAction SilentlyContinue | Remove-NetIPAddress -Confirm:$false -ErrorAction SilentlyContinue
-                    Write-Log "IP addresses removed successfully"
-                    
-                    # Wait for Windows to process the removal
-                    Start-Sleep -Milliseconds 500
-
-                    # Step 4: Set New IP (without gateway first to avoid conflict)
-                    Write-Log "Setting new IP address: $($Config.IPAddress)..."
-                    New-NetIPAddress -InterfaceAlias $Adapter.Name -IPAddress $Config.IPAddress -PrefixLength 24 -Confirm:$false -ErrorAction Stop | Out-Null
-                    Write-Log "IP address set successfully"
-                    
-                    # Wait before adding gateway
-                    Start-Sleep -Milliseconds 500
-                    
-                    # Step 5: Add default gateway separately
-                    Write-Log "Adding default gateway: $($Config.Gateway)..."
-                    New-NetRoute -InterfaceAlias $Adapter.Name -DestinationPrefix "0.0.0.0/0" -NextHop $Config.Gateway -Confirm:$false -ErrorAction Stop | Out-Null
-                    Write-Log "Gateway added successfully"
-
-                    # Step 6: Set DNS
-                    Write-Log "Setting DNS servers..."
-                    Set-DnsClientServerAddress -InterfaceAlias $Adapter.Name -ServerAddresses $Config.DNS -ErrorAction Stop
-                    Write-Log "DNS servers set successfully"
-                    
-                    Write-Log "Configuration Applied Successfully."
-                }
-                catch {
-                    Write-Log "Failed at step: $($_.InvocationInfo.Line.Trim())" "ERROR"
-                    Write-Log "Error details: $($_.Exception.Message)" "ERROR"
-                    throw
-                }
+            # 6. Connectivity Validation (Travel Mode)
+            Write-Log "Validating Connectivity (Ping Gateway: $($TargetConfig.Gateway))..."
+            Start-Sleep -Seconds 2 # Wait for link to settle
+            
+            if (Test-Connection -ComputerName $TargetConfig.Gateway -Count 2 -Quiet) {
+                Write-Log "  [SUCCESS] Gateway reachable. We are in the Office."
+            }
+            else {
+                Write-Log "  [FAIL] Gateway unreachable. Assuming Travel/Home Mode."
+                Write-Log "  Reverting Winner to DHCP..."
+                Set-DhcpMode -InterfaceAlias $Winner.Name -Metric 20
             }
 
         }
-        else {
-            # No Match - Check Unknown Action
-            Write-Log "No configuration found for MAC: $MacAddress"
-            
-            if ($UnknownMacAction -eq "DHCP") {
-                Write-Log "Enforcing DHCP (Default Action)"
-                
-                # Check if DHCP is already enabled
-                $IsDhcpEnabled = (Get-NetIPInterface -InterfaceAlias $Adapter.Name -AddressFamily IPv4).Dhcp
+        catch {
+            Write-Log "  [ERROR] Failed to apply Static IP: $_" "ERROR"
+            Write-Log "  Fallback to DHCP..."
+            Set-DhcpMode -InterfaceAlias $Winner.Name -Metric 20
+        }
+    }
+    else {
+        # No config for this device -> DHCP
+        Write-Log "No Static IP for this device. Using DHCP."
+        Set-DhcpMode -InterfaceAlias $Winner.Name -Metric 20
+    }
 
-                if ($IsDhcpEnabled -eq "Enabled") {
-                    Write-Log "DHCP is already enabled. Skipping."
-                }
-                else {
-                    Write-Log "Enabling DHCP..."
-                    
-                    # Clean up existing routes and IPs first
-                    Get-NetRoute -InterfaceAlias $Adapter.Name -DestinationPrefix "0.0.0.0/0" -AddressFamily IPv4 -ErrorAction SilentlyContinue | Remove-NetRoute -Confirm:$false -ErrorAction SilentlyContinue
-                    Remove-NetIPAddress -InterfaceAlias $Adapter.Name -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
-                    
-                    Set-NetIPInterface -InterfaceAlias $Adapter.Name -Dhcp Enabled -ErrorAction Stop
-                    Set-DnsClientServerAddress -InterfaceAlias $Adapter.Name -ResetServerAddresses -ErrorAction Stop
-                    Write-Log "DHCP Enabled."
-                }
-            }
+    # 7. WiFi Auto-Switch Logic
+    if ($EnableWiFiAutoSwitch) {
+        Write-Log "Checking Internet Connectivity for WiFi Auto-Switch..."
+        
+        # Check if Winner has Internet access
+        if (Test-Connectivity -Targets $WanTestTargets -Threshold $WanSuccessThreshold) {
+            Write-Log "  [STABLE] Ethernet has Internet access. Disabling WiFi..."
+            Disable-NetAdapter -Name "Wi-Fi" -Confirm:$false -ErrorAction SilentlyContinue
+        }
+        else {
+            Write-Log "  [UNSTABLE] Ethernet has NO Internet. Enabling WiFi..."
+            Enable-NetAdapter -Name "Wi-Fi" -Confirm:$false -ErrorAction SilentlyContinue
         }
     }
 
