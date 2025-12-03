@@ -178,24 +178,43 @@ try {
             Write-Log "  [OK] Static IP Configuration Applied"
 
             # 7. Connectivity Validation (Office Check)
-            Write-Log "Validating Connectivity (Ping Gateway: $($TargetConfig.Gateway))..."
-            Start-Sleep -Seconds 2
+            Write-Log "Validating Connectivity..."
             
-            if (Test-Connection -ComputerName $TargetConfig.Gateway -Count 2 -Quiet) {
+            # Give switch more time to adapt to new IP/VLAN (5 seconds)
+            Start-Sleep -Seconds 5
+            
+            $GatewayReachable = Test-Connection -ComputerName $TargetConfig.Gateway -Count 4 -Quiet
+            
+            if ($GatewayReachable) {
                 Write-Log "  [SUCCESS] Gateway reachable. We are in the Office."
             }
             else {
-                Write-Log "  [FAIL] Gateway unreachable. Assuming Travel/Home Mode." "WARNING"
-                Write-Log "  Enabling DHCP for this adapter only..."
+                Write-Log "  [WARNING] Gateway unreachable. Trying WAN targets..."
                 
-                # Remove Static IP and enable DHCP for this adapter
-                Remove-NetIPAddress -InterfaceAlias $Winner.Name -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
-                Remove-NetRoute -InterfaceAlias $Winner.Name -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
-                Set-NetIPInterface -InterfaceAlias $Winner.Name -Dhcp Enabled -ErrorAction SilentlyContinue
-                Set-DnsClientServerAddress -InterfaceAlias $Winner.Name -ResetServerAddresses -ErrorAction SilentlyContinue
+                # Fallback: Check Internet/WAN if Gateway ignores ICMP
+                $WanReachable = $false
+                if ($WanTestTargets) {
+                    $WanReachable = Test-Connectivity -Targets $WanTestTargets -Threshold 1
+                }
                 
-                Write-Log "  [TRAVEL MODE] DHCP enabled for $($Winner.Name)"
+                if ($WanReachable) {
+                    Write-Log "  [SUCCESS] WAN is reachable (Gateway ignored ping). Keeping Static IP."
+                }
+                else {
+                    Write-Log "  [FAIL] Both Gateway and WAN unreachable. Assuming Travel/Home Mode." "WARNING"
+                    Write-Log "  Enabling DHCP for this adapter only..."
+                    
+                    # Remove Static IP and enable DHCP for this adapter
+                    Remove-NetIPAddress -InterfaceAlias $Winner.Name -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
+                    Remove-NetRoute -InterfaceAlias $Winner.Name -AddressFamily IPv4 -Confirm:$false -ErrorAction SilentlyContinue
+                    Set-NetIPInterface -InterfaceAlias $Winner.Name -Dhcp Enabled -ErrorAction SilentlyContinue
+                    Set-DnsClientServerAddress -InterfaceAlias $Winner.Name -ResetServerAddresses -ErrorAction SilentlyContinue
+                    
+                    Write-Log "  [TRAVEL MODE] DHCP enabled for $($Winner.Name)"
+                }
             }
+                
+
 
         }
         catch {
