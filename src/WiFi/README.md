@@ -48,7 +48,7 @@ This will:
 
 ### 3. Verify
 *   Connect to your corporate WiFi
-*   Check the log file: `NetworkEventHandler.log`
+
 *   Verify your IP address using `ipconfig`
 
 ## ⚙️ Configuration

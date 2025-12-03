@@ -245,7 +245,7 @@ Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-TaskScheduler/Operati
 
 1. Unplug cable → Check logs
 2. Plug in cable → Verify IP assignment
-3. Check `EthernetEventHandler.log` for errors
+3. Check `logs/Ethernet-EventHandler.log` for errors
 
 ### Test Conflict Scenarios
 

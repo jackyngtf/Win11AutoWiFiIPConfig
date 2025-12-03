@@ -1,14 +1,16 @@
-# Ethernet IP Automation (MAC-Based)
+# Ethernet IP Automation (Device-Centric)
 
-This subproject provides automatic IP configuration for Ethernet adapters based on their MAC address.
+This module provides automatic IP configuration for Ethernet adapters based on the **Device Hostname**, ensuring consistent connectivity across docks, dongles, and built-in ports.
 
 ## 🎯 Features
-- **MAC-Based Static IP:** Automatically assigns a specific Static IP if the adapter's MAC address matches your configuration.
-- **Auto-DHCP:** Automatically reverts to DHCP for any unknown Ethernet adapter (e.g., plugging into a different network or using a USB dongle).
-- **Event-Driven:** Runs instantly when a network cable is plugged in (triggered by Network Profile events).
+- **Device-Centric Static IP:** Assigns a Static IP to the *computer* (via Hostname), regardless of which Ethernet adapter (Dock/USB) is used.
+- **Zero-DHCP Strategy:** Pre-disables DHCP on all Ethernet adapters to prevent accidental IP leases before the script runs.
+- **VLAN Switching Support:** "Extended Validation" logic forces the Static IP first, waits for the switch to adapt, and only reverts to DHCP if both Gateway and WAN are unreachable.
+- **WiFi Auto-Switch:** Automatically disables WiFi when a stable Ethernet connection is detected.
+- **Conflict Resolution:** "First-Come-First-Serve" logic ensures only one adapter gets the Static IP at a time.
 
 ## 📂 File Structure
-*   `Setup-EthernetEventTrigger.ps1` - **RUN THIS FIRST.** Installs the scheduled task.
+*   `Setup-EthernetEventTrigger.ps1` - **RUN THIS FIRST.** Installs the scheduled task and performs Zero-DHCP initialization.
 *   `EthernetConfig.example.ps1` - **EDIT THIS.** Template for your configuration.
 *   `EthernetEventHandler.ps1` - The core logic script.
 *   `Uninstall-EthernetEventTrigger.ps1` - Removes the scheduled task.
@@ -16,27 +18,47 @@ This subproject provides automatic IP configuration for Ethernet adapters based 
 ## 🚀 Setup Instructions
 
 ### 1. Configure
-1.  Copy `EthernetConfig.example.ps1` to `EthernetConfig.ps1`.
+1.  Copy `EthernetConfig.example.ps1` to `EthernetConfig.ps1`:
     ```powershell
     Copy-Item EthernetConfig.example.ps1 EthernetConfig.ps1
     ```
 2.  Edit `EthernetConfig.ps1`:
-    *   Add your Ethernet adapter's MAC address.
+    *   Add your **Computer Name** (Hostname).
     *   Define the desired IP, Subnet, Gateway, and DNS.
-    *   (Optional) Set `$UnknownMacAction` to "DHCP" (default) or "Nothing".
+    *   Configure WiFi Auto-Switch settings (`$EnableWiFiAutoSwitch`).
 
 ### 2. Install
 Run the setup script as **Administrator**:
 ```powershell
 .\Setup-EthernetEventTrigger.ps1
 ```
+*This will register the task and immediately disable DHCP on all Ethernet adapters.*
 
 ### 3. Verify
 *   Plug in your Ethernet cable.
 *   Check the log file: `EthernetEventHandler.log`.
 *   Verify your IP address using `ipconfig`.
 
+## ⚙️ Configuration Details
+
+### Device Map (Hostname Based)
+```powershell
+$DeviceEthernetMap = @{
+    "L-Jacky-01" = @{
+        IPAddress   = "10.10.216.50"
+        Gateway     = "10.10.216.1"
+        # ...
+    }
+}
+```
+
+### WiFi Auto-Switch
+```powershell
+$EnableWiFiAutoSwitch = $true
+$WanTestTargets = @("8.8.8.8", "1.1.1.1")
+```
+
 ## ❓ Troubleshooting
-*   **Script doesn't run:** Ensure Execution Policy is set to RemoteSigned or Unrestricted.
-*   **Wrong IP:** Check `EthernetConfig.ps1` to ensure the MAC address matches exactly (dashes are required, e.g., `00-11-22...`).
-*   **Logs:** Check `EthernetEventHandler.log` for detailed execution history.
+*   **"Travel Mode" Active:** If the script reverts to DHCP in the office, check your Gateway IP and physical switch port VLAN configuration.
+*   **Access Denied:** Always run setup/maintenance scripts as Administrator.
+*   **Logs:** Check `logs/Ethernet-EventHandler.log` for detailed execution history.

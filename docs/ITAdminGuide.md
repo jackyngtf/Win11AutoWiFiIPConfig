@@ -133,16 +133,17 @@ $config | Set-Content "$dest\src\WiFi\NetworkConfig.ps1"
 **Example database-driven config:**
 ```powershell
 # EthernetConfig.ps1 (dynamic version)
-$macAddress = (Get-NetAdapter | Where-Object {$_.Status -eq 'Up'}).MacAddress
-$apiUrl = "https://ipam.company.com/api/config?mac=$macAddress"
+$hostname = $env:COMPUTERNAME
+$apiUrl = "https://ipam.company.com/api/config?hostname=$hostname"
 $config = Invoke-RestMethod -Uri $apiUrl
 
-$EthernetConfigs = @{
-    $macAddress = @{
+$DeviceEthernetMap = @{
+    $hostname = @{
         IPAddress = $config.IP
         SubnetMask = $config.Subnet
         Gateway = $config.Gateway
         DNS = $config.DNS
+        Description = "Managed Device: $hostname"
     }
 }
 ```
@@ -275,7 +276,7 @@ foreach ($i in $range) {
 
 **Check logs on user's machine:**
 ```powershell
-Get-Content "C:\Scripts\NetworkAutomation\src\WiFi\NetworkEventHandler.log" -Tail 50
+Get-Content "C:\Scripts\NetworkAutomation\logs\WiFi-NetworkEventHandler.log" -Tail 50
 ```
 
 **Common causes:**
