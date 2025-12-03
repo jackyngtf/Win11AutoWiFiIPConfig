@@ -61,7 +61,7 @@ function Set-DhcpMode {
         Write-Log "  [OK] DHCP Enabled on $InterfaceAlias"
     }
     catch {
-        Write-Log "  [ERROR] Failed to set DHCP on $InterfaceAlias: $_" "ERROR"
+        Write-Log "  [ERROR] Failed to set DHCP on ${InterfaceAlias}: ${_}" "ERROR"
     }
 }
 
