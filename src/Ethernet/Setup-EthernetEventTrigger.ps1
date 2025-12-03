@@ -19,6 +19,32 @@ if ($ExistingTask) {
   Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
 }
 
+Write-Host "`n[ZERO-DHCP INITIALIZATION]" -ForegroundColor Cyan
+Write-Host "Disabling DHCP on ALL Ethernet adapters to prevent auto-DHCP..." -ForegroundColor Cyan
+
+# Get all Ethernet adapters (even if no cable connected)
+$AllEthernetAdapters = Get-NetAdapter | Where-Object { $_.PhysicalMediaType -eq "802.3" }
+
+foreach ($Adapter in $AllEthernetAdapters) {
+  $DhcpStatus = (Get-NetIPInterface -InterfaceAlias $Adapter.Name -AddressFamily IPv4 -ErrorAction SilentlyContinue).Dhcp
+    
+  if ($DhcpStatus -eq "Enabled") {
+    try {
+      Set-NetIPInterface -InterfaceAlias $Adapter.Name -Dhcp Disabled -ErrorAction Stop
+      Write-Host "  [OK] DHCP disabled on: $($Adapter.Name)" -ForegroundColor Green
+    }
+    catch {
+      Write-Host "  [WARNING] Failed to disable DHCP on: $($Adapter.Name)" -ForegroundColor Yellow
+    }
+  }
+  else {
+    Write-Host "  [OK] DHCP already disabled on: $($Adapter.Name)" -ForegroundColor Gray
+  }
+}
+
+Write-Host "Zero-DHCP initialization complete.`n" -ForegroundColor Green
+
+
 # 2. Define the Event Trigger XML
 $EventTriggerXml = @"
     <EventTrigger>

@@ -2,39 +2,53 @@
 # Ethernet Network Configuration
 # ============================================================================
 
-# Define specific IP configurations based on MAC Address.
-# Format: "MAC-Address" = @{ Settings }
-# MAC Address format: XX-XX-XX-XX-XX-XX (dashes)
+# Define specific IP configurations based on DEVICE HOSTNAME.
+# Format: "Hostname" = @{ Settings }
+# Hostname is case-insensitive (matches $env:COMPUTERNAME)
 
-$EthernetConfigs = @{
-    # Example 1: Office Desktop
-    "00-D8-61-07-4B-D6" = @{
+$DeviceEthernetMap = @{
+    # Example 1: Jacky's Laptop
+    "PNjacky-ng02" = @{
         IPAddress   = "10.10.216.253"
         SubnetMask  = "255.255.255.0"
         Gateway     = "10.10.216.1"
         DNS         = @("10.10.216.28", "8.8.8.8")
-        Description = "Primary NIC"
+        Description = "Jacky's Primary Laptop"
     }
 
-    # Example 2: Lab Machine
-    "AA-BB-CC-DD-EE-FF" = @{
+    # Example 2: Admin Workstation
+    "W-Admin-02"   = @{
         IPAddress   = "10.0.0.100"
         SubnetMask  = "255.0.0.0"
         Gateway     = "10.0.0.1"
         DNS         = @("10.0.0.1")
-        Description = "Lab Test Machine"
+        Description = "IT Admin Station"
     }
 }
+
+# ============================================================================
+# WiFi Auto-Switch Settings
+# ============================================================================
+
+# Automatically disable WiFi when stable Ethernet is detected
+$EnableWiFiAutoSwitch = $true
+
+# Targets to ping to verify Internet connectivity (WAN Check)
+# Includes baidu.com for China region compatibility
+$WanTestTargets = @("8.8.8.8", "1.1.1.1", "www.baidu.com")
+
+# Minimum number of targets that must reply to consider WAN "Up"
+$WanSuccessThreshold = 1
 
 # ============================================================================
 # Global Settings
 # ============================================================================
 
-# Action for unknown MAC addresses (adapters not in the list above)
+# Action for unknown Devices (Hostnames not in the list above)
 # Options:
 #   "DHCP"     - Force DHCP (Automatic IP) - RECOMMENDED
 #   "Nothing"  - Do not change settings
-$UnknownMacAction = "DHCP"
+$UnknownDeviceAction = "DHCP"
 
 # ============================================================================
 # Logging Configuration
