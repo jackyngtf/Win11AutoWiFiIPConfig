@@ -69,10 +69,10 @@ $StateFile = Join-Path (Split-Path -Parent $PSScriptRoot) "DhcpOverride.state.js
 if (Test-Path $StateFile) {
     try {
         $State = Get-Content $StateFile | ConvertFrom-Json
-        if ($State."Wi-Fi") {
-            $Expiry = [DateTime]::Parse($State."Wi-Fi")
+        if ($State.'Wi-Fi') {
+            $Expiry = [DateTime]::Parse($State.'Wi-Fi')
             if ((Get-Date) -lt $Expiry) {
-                Write-Log "⚠️ TEMPORARY DHCP OVERRIDE ACTIVE (Expires: $($Expiry))"
+                Write-Log "TEMPORARY DHCP OVERRIDE ACTIVE (Expires: $Expiry)"
                 Write-Log "  Skipping Static IP enforcement. Ensuring DHCP is enabled..."
                 
                 # Ensure DHCP is enabled
@@ -83,9 +83,9 @@ if (Test-Path $StateFile) {
                 exit # EXIT SCRIPT
             }
             else {
-                Write-Log "ℹ️ DHCP Override Expired ($($Expiry)). Reverting to normal logic."
+                Write-Log "DHCP Override Expired ($Expiry). Reverting to normal logic."
                 # Cleanup expired entry
-                $State.PSObject.Properties.Remove("Wi-Fi")
+                $State.PSObject.Properties.Remove('Wi-Fi')
                 $State | ConvertTo-Json | Set-Content $StateFile
             }
         }
