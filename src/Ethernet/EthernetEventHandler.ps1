@@ -4,7 +4,7 @@
 # ============================================================================
 
 $ScriptPath = $PSScriptRoot
-$ProjectRoot = Split-Path -Parent $ScriptPath
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $ScriptPath)  # Go up 2 levels: src/Ethernet -> src -> root
 $LogFile = Join-Path $ProjectRoot "logs\Ethernet-EventHandler.log"
 $ConfigFile = Join-Path $ScriptPath "EthernetConfig.ps1"
 

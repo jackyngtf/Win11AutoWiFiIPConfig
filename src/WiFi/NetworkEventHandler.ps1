@@ -8,7 +8,7 @@ param (
 )
 
 # Log file for troubleshooting (centralized logs folder)
-$projectRoot = Split-Path -Parent $PSScriptRoot
+$projectRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)  # Go up 2 levels: src/WiFi -> src -> root
 $logPath = Join-Path $projectRoot "logs\WiFi-NetworkEventHandler.log"
 
 # Configuration - Load from main script
@@ -136,11 +136,19 @@ function Set-StaticIPConfiguration {
         # !! CRITICAL: Disable DHCP FIRST to prevent ANY DHCP requests !!
         Write-Log "  [PRIORITY] Disabling DHCP immediately to block DHCP requests..."
         try {
-            Set-NetIPInterface -InterfaceIndex $interfaceIndex -Dhcp Disabled -AddressFamily IPv4 -ErrorAction Stop
-            Write-Log "  [OK] DHCP disabled - no DHCP requests will be sent"
+            # Check current DHCP state first
+            $currentDhcpState = (Get-NetIPInterface -InterfaceIndex $interfaceIndex -AddressFamily IPv4).Dhcp
+            
+            if ($currentDhcpState -eq "Enabled") {
+                Set-NetIPInterface -InterfaceIndex $interfaceIndex -Dhcp Disabled -AddressFamily IPv4 -ErrorAction Stop
+                Write-Log "  [OK] DHCP disabled - no DHCP requests will be sent"
+            }
+            else {
+                Write-Log "  [OK] DHCP already disabled"
+            }
         }
         catch {
-            Write-Log "  [ERROR] Failed to disable DHCP: $_"
+            Write-Log "  [WARNING] DHCP disable check: $_"
         }
 
         # Remove existing IPv4 address
@@ -178,13 +186,16 @@ function Set-StaticIPConfiguration {
         Write-Log "  Setting static IP: $StaticIP/$prefix"
 
         # Set static IP address
-        # Set static IP address
         try {
             New-NetIPAddress -InterfaceIndex $interfaceIndex `
                 -IPAddress $StaticIP `
                 -PrefixLength $prefix `
-                -DefaultGateway $Gateway `
                 -ErrorAction Stop | Out-Null
+            
+            # Add Default Gateway separately to avoid PolicyStore conflicts
+            if ($Gateway) {
+                New-NetRoute -InterfaceIndex $interfaceIndex -DestinationPrefix "0.0.0.0/0" -NextHop $Gateway -ErrorAction Stop | Out-Null
+            }
         }
         catch {
             if ($_.Exception.Message -like "*already exists*") {
@@ -198,9 +209,14 @@ function Set-StaticIPConfiguration {
         Start-Sleep -Milliseconds 500
 
         # Configure DNS servers
-        Write-Log "  Configuring DNS: $PrimaryDNS, $SecondaryDNS"
+        $dnsServers = @($PrimaryDNS)
+        if (![string]::IsNullOrWhiteSpace($SecondaryDNS)) { 
+            $dnsServers += $SecondaryDNS 
+        }
+        
+        Write-Log "  Configuring DNS: $($dnsServers -join ', ')"
         Set-DnsClientServerAddress -InterfaceIndex $interfaceIndex `
-            -ServerAddresses ($PrimaryDNS, $SecondaryDNS) `
+            -ServerAddresses $dnsServers `
             -ErrorAction Stop
 
         # Disable IPv6
@@ -215,8 +231,19 @@ function Set-StaticIPConfiguration {
         return $true
     }
     catch {
-        Write-Log "  [ERROR] Failed to apply static IP: $_"
-        Write-Host "  [ERROR] Failed to apply static IP: $_" -ForegroundColor Red
+        # Check if IP was actually applied despite error (common with PolicyStore issues)
+        $currentIP = Get-NetIPAddress -InterfaceIndex $interfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.IPAddress -eq $StaticIP }
+        
+        if ($currentIP) {
+            Write-Log "  [WARNING] Static IP applied successfully, but reported error: $_"
+            Write-Host "  [WARNING] Static IP applied successfully, but reported error: $_" -ForegroundColor Yellow
+            return $true
+        }
+        else {
+            Write-Log "  [ERROR] Failed to apply static IP: $_"
+            Write-Host "  [ERROR] Failed to apply static IP: $_" -ForegroundColor Red
+            return $false
+        }
         return $false
     }
 }
@@ -245,8 +272,14 @@ function Set-DHCPConfiguration {
         # STEP 1: Ensure DHCP is DISABLED (this prevents race conditions)
         Write-Log "  [CRITICAL] Ensuring DHCP is DISABLED (prevents race condition)..."
         try {
-            Set-NetIPInterface -InterfaceIndex $interfaceIndex -Dhcp Disabled -AddressFamily IPv4 -ErrorAction SilentlyContinue
-            Write-Log "  [OK] DHCP is disabled on adapter"
+            $currentDhcpState = (Get-NetIPInterface -InterfaceIndex $interfaceIndex -AddressFamily IPv4).Dhcp
+            if ($currentDhcpState -eq "Enabled") {
+                Set-NetIPInterface -InterfaceIndex $interfaceIndex -Dhcp Disabled -AddressFamily IPv4 -ErrorAction Stop
+                Write-Log "  [OK] DHCP disabled on adapter"
+            }
+            else {
+                Write-Log "  [OK] DHCP already disabled on adapter"
+            }
         }
         catch {
             Write-Log "  DHCP disable check: $_"
