@@ -10,14 +10,16 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit
 }
 
-# 2. Load WPF Assembly
+# 2. Load Assemblies
 Add-Type -AssemblyName PresentationFramework
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
 # 3. Define XAML UI
 [xml]$Xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Network Automation Manager" Height="500" Width="700"
+        Title="Network Automation Manager" Height="650" Width="750"
         WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize"
         Background="#1E1E1E" Foreground="White">
     <Window.Resources>
@@ -52,12 +54,13 @@ Add-Type -AssemblyName PresentationFramework
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
             <TextBlock Text="Network Automation Manager" FontSize="24" FontWeight="Bold" Foreground="#00CED1"/>
         </StackPanel>
 
@@ -132,8 +135,29 @@ Add-Type -AssemblyName PresentationFramework
             </GroupBox>
         </Grid>
 
+        <!-- Output Panel -->
+        <GroupBox Header="Output Log" Grid.Row="2" Margin="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBox Name="txtOutput" Grid.Row="0" 
+                         Background="#0C0C0C" Foreground="#00FF00" 
+                         FontFamily="Consolas" FontSize="12"
+                         IsReadOnly="True" TextWrapping="Wrap" 
+                         VerticalScrollBarVisibility="Auto"
+                         AcceptsReturn="True" Padding="5"/>
+                <Button Name="btnClearOutput" Grid.Row="1" Content="Clear Log" 
+                        HorizontalAlignment="Right" Margin="5" Width="100"/>
+            </Grid>
+        </GroupBox>
+
         <!-- Footer -->
-        <TextBlock Grid.Row="2" Text="v1.0 - Zero DHCP Strategy" HorizontalAlignment="Center" Foreground="#555555" FontSize="10"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center">
+            <TextBlock Text="v1.1 - Zero DHCP Strategy | " Foreground="#555555" FontSize="10"/>
+            <TextBlock Name="txtTrayHint" Text="Minimize to move to system tray" Foreground="#555555" FontSize="10"/>
+        </StackPanel>
     </Grid>
 </Window>
 "@
@@ -157,7 +181,56 @@ $btnApplyOverride = $Window.FindName("btnApplyOverride")
 $btnClearOverride = $Window.FindName("btnClearOverride")
 $txtOverrideStatus = $Window.FindName("txtOverrideStatus")
 
-# 6. Helper Functions
+$txtOutput = $Window.FindName("txtOutput")
+$btnClearOutput = $Window.FindName("btnClearOutput")
+
+# 6. Create System Tray Icon
+$script:NotifyIcon = New-Object System.Windows.Forms.NotifyIcon
+$script:NotifyIcon.Text = "Network Automation Manager"
+$script:NotifyIcon.Visible = $false
+
+# Create icon from embedded base64 or use default
+try {
+    $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Shield
+}
+catch {
+    $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Application
+}
+
+# Tray Context Menu
+$TrayMenu = New-Object System.Windows.Forms.ContextMenuStrip
+$TrayMenuOpen = $TrayMenu.Items.Add("Open Dashboard")
+$TrayMenuExit = $TrayMenu.Items.Add("Exit")
+$script:NotifyIcon.ContextMenuStrip = $TrayMenu
+
+# Tray Events
+$TrayMenuOpen.Add_Click({
+        $Window.Show()
+        $Window.WindowState = 'Normal'
+        $Window.Activate()
+        $script:NotifyIcon.Visible = $false
+    })
+
+$TrayMenuExit.Add_Click({
+        $script:NotifyIcon.Visible = $false
+        $script:NotifyIcon.Dispose()
+        $Window.Close()
+    })
+
+$script:NotifyIcon.Add_DoubleClick({
+        $Window.Show()
+        $Window.WindowState = 'Normal'
+        $Window.Activate()
+        $script:NotifyIcon.Visible = $false
+    })
+
+# 7. Helper Functions
+function Write-Output-Log ($Message, $Color = "White") {
+    $Timestamp = Get-Date -Format "HH:mm:ss"
+    $txtOutput.AppendText("[$Timestamp] $Message`r`n")
+    $txtOutput.ScrollToEnd()
+}
+
 function Update-Status {
     # Check Ethernet
     if (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue) {
@@ -191,15 +264,30 @@ function Update-Status {
 function Run-Script ($ScriptPath, $Args = "") {
     $FullScriptPath = Join-Path $PSScriptRoot $ScriptPath
     if (Test-Path $FullScriptPath) {
-        Start-Process PowerShell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$FullScriptPath`" $Args" -Wait
+        Write-Output-Log "Running: $ScriptPath $Args"
+        Write-Output-Log "----------------------------------------"
+        
+        try {
+            # Run script and capture output
+            $Output = & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "$FullScriptPath" $Args.Split(" ") 2>&1
+            foreach ($Line in $Output) {
+                Write-Output-Log $Line.ToString()
+            }
+            Write-Output-Log "----------------------------------------"
+            Write-Output-Log "Script completed."
+        }
+        catch {
+            Write-Output-Log "ERROR: $_"
+        }
+        
         Update-Status
     }
     else {
-        [System.Windows.MessageBox]::Show("Script not found: $FullScriptPath", "Error", "OK", "Error")
+        Write-Output-Log "ERROR: Script not found: $FullScriptPath"
     }
 }
 
-# 7. Event Handlers
+# 8. Event Handlers
 $btnInstallEthernet.Add_Click({
         Run-Script "Ethernet\Setup-EthernetEventTrigger.ps1"
     })
@@ -218,7 +306,7 @@ $btnUninstallWiFi.Add_Click({
 
 $btnApplyOverride.Add_Click({
         $Interface = $cmbInterface.Text
-        $DurationStr = $cmbDuration.Text.Split(" ")[0] # Extract number
+        $DurationStr = $cmbDuration.Text.Split(" ")[0]
         $Duration = [int]$DurationStr
     
         Run-Script "Set-DhcpOverride.ps1" "-Interface $Interface -Days $Duration"
@@ -231,6 +319,27 @@ $btnClearOverride.Add_Click({
         $txtOverrideStatus.Text = "Override cleared for $Interface"
     })
 
-# 8. Initialize and Show
+$btnClearOutput.Add_Click({
+        $txtOutput.Clear()
+        Write-Output-Log "Log cleared."
+    })
+
+# 9. Window Events - Minimize to Tray
+$Window.Add_StateChanged({
+        if ($Window.WindowState -eq 'Minimized') {
+            $Window.Hide()
+            $script:NotifyIcon.Visible = $true
+            $script:NotifyIcon.ShowBalloonTip(2000, "Network Automation Manager", "Running in background. Double-click to restore.", [System.Windows.Forms.ToolTipIcon]::Info)
+        }
+    })
+
+$Window.Add_Closing({
+        $script:NotifyIcon.Visible = $false
+        $script:NotifyIcon.Dispose()
+    })
+
+# 10. Initialize and Show
+Write-Output-Log "Dashboard initialized."
+Write-Output-Log "Ready to manage network automation."
 Update-Status
 $Window.ShowDialog() | Out-Null
