@@ -80,41 +80,49 @@ function Enable-DhcpNow ($InterfaceAlias) {
     }
 }
 
-# Helper to check if automation is actually set up
-function Test-SetupStatus ($Target) {
-    if ($Target -eq "Ethernet" -or $Target -eq "All") {
-        if (-not (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue)) {
-            Write-Warning "Ethernet automation is NOT set up."
-            Write-Warning "Please run 'src\Ethernet\Setup-EthernetEventTrigger.ps1' first."
-            return $false
-        }
-    }
-    if ($Target -eq "Wi-Fi" -or $Target -eq "All") {
-        if (-not (Get-ScheduledTask -TaskName "WiFi-AutoConfig-Connect" -ErrorAction SilentlyContinue)) {
-            Write-Warning "WiFi automation is NOT set up."
-            Write-Warning "Please run 'src\WiFi\Setup-NetworkEventTrigger.ps1' first."
-            return $false
-        }
-    }
-    return $true
-}
-
 # Main Logic
-if (-not (Test-SetupStatus $Interface)) {
-    Write-Error "Setup validation failed. No changes made."
-    exit
-}
-
 $State = Get-State
 
-# Determine target interfaces
-$Targets = @()
+# 1. Determine Requested Targets
+$RequestedTargets = @()
 if ($Interface -eq "All") {
-    $Targets += "Wi-Fi"
-    $Targets += "Ethernet"
+    $RequestedTargets += "Wi-Fi"
+    $RequestedTargets += "Ethernet"
 }
 else {
-    $Targets += $Interface
+    $RequestedTargets += $Interface
+}
+
+# 2. Validate Targets (Partial Success Logic)
+$Targets = @()
+
+foreach ($Target in $RequestedTargets) {
+    $IsValid = $true
+    
+    if ($Target -eq "Ethernet") {
+        if (-not (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue)) {
+            Write-Host "WARNING: Ethernet automation is NOT set up. Skipping Ethernet." -ForegroundColor Yellow
+            Write-Host "Please run 'src\Ethernet\Setup-EthernetEventTrigger.ps1' to enable Ethernet control." -ForegroundColor Gray
+            $IsValid = $false
+        }
+    }
+    elseif ($Target -eq "Wi-Fi") {
+        if (-not (Get-ScheduledTask -TaskName "WiFi-AutoConfig-Connect" -ErrorAction SilentlyContinue)) {
+            Write-Host "WARNING: WiFi automation is NOT set up. Skipping WiFi." -ForegroundColor Yellow
+            Write-Host "Please run 'src\WiFi\Setup-NetworkEventTrigger.ps1' to enable WiFi control." -ForegroundColor Gray
+            $IsValid = $false
+        }
+    }
+    
+    if ($IsValid) {
+        $Targets += $Target
+    }
+}
+
+# 3. Check if we have ANY valid targets
+if ($Targets.Count -eq 0) {
+    Write-Host "No valid interfaces found to override. Setup validation failed." -ForegroundColor Red
+    exit
 }
 
 if ($Clear) {
