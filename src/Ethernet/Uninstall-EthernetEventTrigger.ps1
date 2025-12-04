@@ -10,9 +10,10 @@ $ExistingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyConti
 if ($ExistingTask) {
     Write-Host "Removing scheduled task: $TaskName" -ForegroundColor Yellow
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    Write-Host "  [OK] Task removed successfully." -ForegroundColor Green
 }
 else {
-    Write-Host "Task '$TaskName' not found." -ForegroundColor Gray
+    Write-Host "[INFO] Task '$TaskName' not found (already uninstalled or never installed)." -ForegroundColor Gray
 }
 
 # 2. Restore DHCP on all Ethernet Adapters (Optional but recommended)
