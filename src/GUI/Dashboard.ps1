@@ -262,7 +262,8 @@ function Update-Status {
 }
 
 function Run-Script ($ScriptPath, $Args = "") {
-    $FullScriptPath = Join-Path $PSScriptRoot $ScriptPath
+    $SrcRoot = Split-Path -Parent $PSScriptRoot
+    $FullScriptPath = Join-Path $SrcRoot $ScriptPath
     if (Test-Path $FullScriptPath) {
         Write-Output-Log "Running: $ScriptPath $Args"
         Write-Output-Log "----------------------------------------"
