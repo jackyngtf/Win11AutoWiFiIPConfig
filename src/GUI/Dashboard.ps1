@@ -149,6 +149,84 @@ Add-Type -AssemblyName System.Drawing
                          VerticalScrollBarVisibility="Auto"
                          AcceptsReturn="True" Padding="5"/>
                 <Button Name="btnClearOutput" Grid.Row="1" Content="Clear Log" 
+                        HorizontalAlignment="Right" Margin="5" Width="100"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- Footer -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center">
+            <TextBlock Text="v0.0.1 (Alpha) - Zero DHCP Strategy | " Foreground="#555555" FontSize="10"/>
+            <TextBlock Name="txtTrayHint" Text="Minimize to move to system tray" Foreground="#555555" FontSize="10"/>
+        </StackPanel>
+    </Grid>
+</Window>
+"@
+
+# 4. Parse XAML
+$Reader = (New-Object System.Xml.XmlNodeReader $Xaml)
+$Window = [Windows.Markup.XamlReader]::Load($Reader)
+
+# 5. Find Controls
+$txtEthernetStatus = $Window.FindName("txtEthernetStatus")
+$btnInstallEthernet = $Window.FindName("btnInstallEthernet")
+$btnUninstallEthernet = $Window.FindName("btnUninstallEthernet")
+
+$txtWiFiStatus = $Window.FindName("txtWiFiStatus")
+$btnInstallWiFi = $Window.FindName("btnInstallWiFi")
+$btnUninstallWiFi = $Window.FindName("btnUninstallWiFi")
+
+$cmbInterface = $Window.FindName("cmbInterface")
+$cmbDuration = $Window.FindName("cmbDuration")
+$btnApplyOverride = $Window.FindName("btnApplyOverride")
+$btnClearOverride = $Window.FindName("btnClearOverride")
+$txtOverrideStatus = $Window.FindName("txtOverrideStatus")
+
+$txtOutput = $Window.FindName("txtOutput")
+$btnClearOutput = $Window.FindName("btnClearOutput")
+
+# 6. Create System Tray Icon
+$script:NotifyIcon = New-Object System.Windows.Forms.NotifyIcon
+$script:NotifyIcon.Text = "Network Automation Manager"
+$script:NotifyIcon.Visible = $false
+
+# Try multiple icon sources to ensure visibility
+try {
+    # Attempt 1: Information Icon (High visibility)
+    $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Information
+}
+catch {
+    try {
+        # Attempt 2: PowerShell Icon
+        $PSExe = (Get-Process -Id $PID).Path
+        $script:NotifyIcon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($PSExe)
+    }
+    catch {
+        # Attempt 3: Application Icon (Fallback)
+        $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Application
+    }
+}
+
+# Tray Context Menu
+$TrayMenu = New-Object System.Windows.Forms.ContextMenuStrip
+$TrayMenuOpen = $TrayMenu.Items.Add("Open Dashboard")
+$TrayMenuExit = $TrayMenu.Items.Add("Exit")
+$script:NotifyIcon.ContextMenuStrip = $TrayMenu
+
+# Tray Events
+$TrayMenuOpen.Add_Click({
+        $Window.Show()
+        $Window.WindowState = 'Normal'
+        $Window.Activate()
+        $script:NotifyIcon.Visible = $false
+    })
+
+$TrayMenuExit.Add_Click({
+        $script:NotifyIcon.Visible = $false
+        $script:NotifyIcon.Dispose()
+        $Window.Close()
+    })
+
+$script:NotifyIcon.Add_DoubleClick({
         $Window.Show()
         $Window.WindowState = 'Normal'
         $Window.Activate()
@@ -324,17 +402,52 @@ $btnApplyOverride.Add_Click({
 
 $btnClearOverride.Add_Click({
         $Interface = $cmbInterface.Text
-            $script:NotifyIcon.ShowBalloonTip(2000, "Network Automation Manager", "Running in background. Double-click to restore.", [System.Windows.Forms.ToolTipIcon]::Info)
+        Run-Script-Async "Set-DhcpOverride.ps1" "-Interface $Interface -Clear"
+        $txtOverrideStatus.Text = "Override cleared for $Interface"
+    })
+
+$btnClearOutput.Add_Click({
+        $txtOutput.Clear()
+        Write-Output-Log "Log cleared."
+    })
+
+# 9. Window Events - Minimize to Tray
+$Window.Add_StateChanged({
+        if ($Window.WindowState -eq 'Minimized') {
+            try {
+                # Make icon visible BEFORE hiding window
+                $script:NotifyIcon.Visible = $true
+                $Window.Hide()
+            
+                # Show balloon tip
+                $script:NotifyIcon.ShowBalloonTip(2000, "Network Automation Manager", "Running in background. Double-click to restore.", [System.Windows.Forms.ToolTipIcon]::Info)
+            
+                Write-Output-Log "Minimized to tray successfully."
+            }
+            catch {
+                # Log error to file since UI is hidden
+                $ErrorMsg = "Error during minimize: $_"
+                Add-Content -Path "$PSScriptRoot\dashboard_error.log" -Value $ErrorMsg
+                [System.Windows.Forms.MessageBox]::Show($ErrorMsg, "Minimize Error")
+            }
         }
     })
 
 $Window.Add_Closing({
         $script:NotifyIcon.Visible = $false
         $script:NotifyIcon.Dispose()
+        # Shutdown the dispatcher to exit the application
+        [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
     })
 
 # 10. Initialize and Show
 Write-Output-Log "Dashboard initialized."
 Write-Output-Log "Ready to manage network automation."
 Update-Status
-$Window.ShowDialog() | Out-Null
+
+# Use Show() instead of ShowDialog() so the window can be hidden without closing
+$Window.Show()
+
+# Run the WPF dispatcher to keep the application alive
+# This allows the tray icon to persist even when the window is hidden
+[System.Windows.Threading.Dispatcher]::Run()
