@@ -102,7 +102,28 @@ if ($Clear) {
         }
     }
     Save-State $State
-    Write-Host "Done. Static IP logic will resume on next connection event." -ForegroundColor Green
+    
+    # NEW: Immediately trigger handler scripts to reapply static IP
+    Write-Host "`nTriggering configuration update to reapply static IP..." -ForegroundColor Cyan
+    
+    foreach ($Target in $Targets) {
+        if ($Target -eq "Wi-Fi") {
+            $HandlerScript = Join-Path $ScriptPath "WiFi\NetworkEventHandler.ps1"
+            if (Test-Path $HandlerScript) {
+                Write-Host "  Running WiFi handler..." -ForegroundColor Gray
+                & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File $HandlerScript -TriggerEvent "Auto"
+            }
+        }
+        elseif ($Target -eq "Ethernet") {
+            $HandlerScript = Join-Path $ScriptPath "Ethernet\EthernetEventHandler.ps1"
+            if (Test-Path $HandlerScript) {
+                Write-Host "  Running Ethernet handler..." -ForegroundColor Gray
+                & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File $HandlerScript
+            }
+        }
+    }
+    
+    Write-Host "`nDone. Static IP configuration has been reapplied." -ForegroundColor Green
 }
 else {
     if ($Days -le 0) {
