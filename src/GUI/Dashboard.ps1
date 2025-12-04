@@ -149,57 +149,6 @@ Add-Type -AssemblyName System.Drawing
                          VerticalScrollBarVisibility="Auto"
                          AcceptsReturn="True" Padding="5"/>
                 <Button Name="btnClearOutput" Grid.Row="1" Content="Clear Log" 
-                        HorizontalAlignment="Right" Margin="5" Width="100"/>
-            </Grid>
-        </GroupBox>
-
-        <!-- Footer -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center">
-            <TextBlock Text="v1.2 - Zero DHCP Strategy | " Foreground="#555555" FontSize="10"/>
-            <TextBlock Name="txtTrayHint" Text="Minimize to move to system tray" Foreground="#555555" FontSize="10"/>
-        </StackPanel>
-    </Grid>
-</Window>
-"@
-
-# 4. Parse XAML
-$Reader = (New-Object System.Xml.XmlNodeReader $Xaml)
-$Window = [Windows.Markup.XamlReader]::Load($Reader)
-
-# 5. Find Controls
-$txtEthernetStatus = $Window.FindName("txtEthernetStatus")
-$btnInstallEthernet = $Window.FindName("btnInstallEthernet")
-$btnUninstallEthernet = $Window.FindName("btnUninstallEthernet")
-
-$txtWiFiStatus = $Window.FindName("txtWiFiStatus")
-$btnInstallWiFi = $Window.FindName("btnInstallWiFi")
-$btnUninstallWiFi = $Window.FindName("btnUninstallWiFi")
-
-$cmbInterface = $Window.FindName("cmbInterface")
-$cmbDuration = $Window.FindName("cmbDuration")
-$btnApplyOverride = $Window.FindName("btnApplyOverride")
-$btnClearOverride = $Window.FindName("btnClearOverride")
-$txtOverrideStatus = $Window.FindName("txtOverrideStatus")
-
-$TrayMenuOpen = $TrayMenu.Items.Add("Open Dashboard")
-$TrayMenuExit = $TrayMenu.Items.Add("Exit")
-$script:NotifyIcon.ContextMenuStrip = $TrayMenu
-
-# Tray Events
-$TrayMenuOpen.Add_Click({
-        $Window.Show()
-        $Window.WindowState = 'Normal'
-        $Window.Activate()
-        $script:NotifyIcon.Visible = $false
-    })
-
-$TrayMenuExit.Add_Click({
-        $script:NotifyIcon.Visible = $false
-        $script:NotifyIcon.Dispose()
-        $Window.Close()
-    })
-
-$script:NotifyIcon.Add_DoubleClick({
         $Window.Show()
         $Window.WindowState = 'Normal'
         $Window.Activate()
@@ -375,20 +324,6 @@ $btnApplyOverride.Add_Click({
 
 $btnClearOverride.Add_Click({
         $Interface = $cmbInterface.Text
-        Run-Script-Async "Set-DhcpOverride.ps1" "-Interface $Interface -Clear"
-        $txtOverrideStatus.Text = "Override cleared for $Interface"
-    })
-
-$btnClearOutput.Add_Click({
-        $txtOutput.Clear()
-        Write-Output-Log "Log cleared."
-    })
-
-# 9. Window Events - Minimize to Tray
-$Window.Add_StateChanged({
-        if ($Window.WindowState -eq 'Minimized') {
-            $Window.Hide()
-            $script:NotifyIcon.Visible = $true
             $script:NotifyIcon.ShowBalloonTip(2000, "Network Automation Manager", "Running in background. Double-click to restore.", [System.Windows.Forms.ToolTipIcon]::Info)
         }
     })
