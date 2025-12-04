@@ -270,7 +270,14 @@ function Run-Script ($ScriptPath, $Args = "") {
         
         try {
             # Run script and capture output
-            $Output = & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "$FullScriptPath" $Args.Split(" ") 2>&1
+            # Fix: Only split if Args is a non-empty string
+            if ($Args -and ($Args -is [string]) -and ($Args.Trim())) {
+                $ArgArray = $Args.Trim().Split(" ", [StringSplitOptions]::RemoveEmptyEntries)
+                $Output = & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "$FullScriptPath" $ArgArray 2>&1
+            }
+            else {
+                $Output = & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "$FullScriptPath" 2>&1
+            }
             foreach ($Line in $Output) {
                 Write-Output-Log $Line.ToString()
             }
