@@ -9,6 +9,7 @@ logs/*
 # User Configuration (Don't commit secrets!)
 src/WiFi/NetworkConfig.ps1
 src/Ethernet/EthernetConfig.ps1
+docs/Network-Test-Results.md
 
 # Editor
 .vscode/

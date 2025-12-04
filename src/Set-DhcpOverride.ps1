@@ -34,9 +34,33 @@ function Save-State ($State) {
 function Enable-DhcpNow ($InterfaceAlias) {
     Write-Host "  Enabling DHCP on $InterfaceAlias..." -ForegroundColor Cyan
     try {
+        # STEP 1: Remove all existing static IP addresses
+        Write-Host "    Removing static IPs..." -ForegroundColor Gray
+        $ExistingIPs = Get-NetIPAddress -InterfaceAlias $InterfaceAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue
+        foreach ($IP in $ExistingIPs) {
+            Remove-NetIPAddress -InterfaceAlias $InterfaceAlias -IPAddress $IP.IPAddress -Confirm:$false -ErrorAction SilentlyContinue
+        }
+        
+        # STEP 2: Remove all existing routes (including gateway)
+        Write-Host "    Removing static routes (including gateway)..." -ForegroundColor Gray
+        $ExistingRoutes = Get-NetRoute -InterfaceAlias $InterfaceAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue
+        foreach ($Route in $ExistingRoutes) {
+            if ($Route.DestinationPrefix -ne "255.255.255.255/32") {
+                Remove-NetRoute -InterfaceAlias $InterfaceAlias -DestinationPrefix $Route.DestinationPrefix -Confirm:$false -ErrorAction SilentlyContinue
+            }
+        }
+        
+        Start-Sleep -Milliseconds 500
+        
+        # STEP 3: Enable DHCP on the interface
         Set-NetIPInterface -InterfaceAlias $InterfaceAlias -Dhcp Enabled -ErrorAction Stop
         Set-DnsClientServerAddress -InterfaceAlias $InterfaceAlias -ResetServerAddresses -ErrorAction SilentlyContinue
-        Write-Host "  [OK] DHCP Enabled." -ForegroundColor Green
+        
+        # STEP 4: Force DHCP renewal
+        Write-Host "    Requesting DHCP lease..." -ForegroundColor Gray
+        ipconfig /renew "$InterfaceAlias" | Out-Null
+        
+        Write-Host "  [OK] DHCP Enabled and configured." -ForegroundColor Green
     }
     catch {
         Write-Host "  [ERROR] Failed to enable DHCP: $_" -ForegroundColor Red
