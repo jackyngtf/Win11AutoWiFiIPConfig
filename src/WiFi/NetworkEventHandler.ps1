@@ -167,11 +167,28 @@ function Set-StaticIPConfiguration {
 
         Write-Log "  WiFi Adapter: $interfaceName (Index: $interfaceIndex) Status: $($wifiAdapter.Status)"
 
+        # NEW: Check if adapter is disabled and enable it
+        if ($wifiAdapter.Status -eq "Disabled") {
+            Write-Log "[!] WiFi adapter is disabled (possibly by Ethernet auto-switch). Enabling it for configuration..."
+            Enable-NetAdapter -Name $wifiAdapter.Name -Confirm:$false
+            Start-Sleep -Seconds 2
+            # Refresh adapter object
+            $wifiAdapter = Get-NetAdapter -Name $wifiAdapter.Name
+            Write-Log "  Adapter enabled: $($wifiAdapter.Status)"
+        }
+
         # !! CRITICAL: Disable DHCP FIRST to prevent ANY DHCP requests !!
         Write-Log "  [PRIORITY] Disabling DHCP immediately to block DHCP requests..."
         try {
-            # Check current DHCP state first
-            $currentDhcpState = (Get-NetIPInterface -InterfaceIndex $interfaceIndex -AddressFamily IPv4).Dhcp
+            # Check current DHCP state first (with better error handling)
+            $currentDhcpState = (Get-NetIPInterface -InterfaceIndex $interfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).Dhcp
+            
+            # Handle case where interface state can't be retrieved (adapter initializing)
+            if ($null -eq $currentDhcpState) {
+                Write-Log "  [WARNING] Could not get DHCP state (adapter may be initializing). Attempting to disable DHCP anyway..."
+                Set-NetIPInterface -InterfaceIndex $interfaceIndex -Dhcp Disabled -AddressFamily IPv4 -ErrorAction SilentlyContinue
+                return $false
+            }
             
             if ($currentDhcpState -eq "Enabled") {
                 Set-NetIPInterface -InterfaceIndex $interfaceIndex -Dhcp Disabled -AddressFamily IPv4 -ErrorAction Stop

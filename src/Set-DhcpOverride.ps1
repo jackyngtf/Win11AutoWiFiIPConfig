@@ -34,6 +34,19 @@ function Save-State ($State) {
 function Enable-DhcpNow ($InterfaceAlias) {
     Write-Host "  Enabling DHCP on $InterfaceAlias..." -ForegroundColor Cyan
     try {
+        # NEW: Check if adapter is disabled and enable it
+        $Adapter = Get-NetAdapter -Name $InterfaceAlias -ErrorAction SilentlyContinue
+        if (-not $Adapter) {
+            Write-Host "  [ERROR] Adapter '$InterfaceAlias' not found" -ForegroundColor Red
+            return
+        }
+        
+        if ($Adapter.Status -eq "Disabled") {
+            Write-Host "    [!] Adapter is disabled (possibly by Ethernet auto-switch). Enabling..." -ForegroundColor Yellow
+            Enable-NetAdapter -Name $InterfaceAlias -Confirm:$false
+            Start-Sleep -Seconds 2
+        }
+        
         # STEP 1: Remove all existing static IP addresses
         Write-Host "    Removing static IPs..." -ForegroundColor Gray
         $ExistingIPs = Get-NetIPAddress -InterfaceAlias $InterfaceAlias -AddressFamily IPv4 -ErrorAction SilentlyContinue

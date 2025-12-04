@@ -125,10 +125,20 @@ if ($added -eq 0) {
 Write-Host "`n[STEP 2] Initializing WiFi Adapter" -ForegroundColor Yellow
 Write-Host "---------------------------------------------" -ForegroundColor Yellow
 
-# Get WiFi adapter
-$wifiAdapter = Get-NetAdapter | Where-Object { $_.Name -like "*Wi-Fi*" -and $_.Status -ne "Disabled" }
+# Get WiFi adapter (including disabled ones)
+$wifiAdapter = Get-NetAdapter | Where-Object { $_.Name -like "*Wi-Fi*" }
 
 if ($wifiAdapter) {
+    # Check if adapter is disabled (possibly by Ethernet auto-switch)
+    if ($wifiAdapter.Status -eq "Disabled") {
+        Write-Host "  [!] WiFi adapter is currently disabled (possibly by Ethernet auto-switch)" -ForegroundColor Yellow
+        Write-Host "  [*] Enabling WiFi for setup..." -ForegroundColor Cyan
+        Enable-NetAdapter -Name $wifiAdapter.Name -Confirm:$false
+        Start-Sleep -Seconds 2
+        # Refresh adapter status
+        $wifiAdapter = Get-NetAdapter | Where-Object { $_.Name -like "*Wi-Fi*" }
+    }
+    
     $interfaceIndex = $wifiAdapter.ifIndex
     $interfaceName = $wifiAdapter.Name
     
@@ -145,7 +155,7 @@ if ($wifiAdapter) {
     }
 }
 else {
-    Write-Host "  [!] WiFi adapter not found or disabled" -ForegroundColor Yellow
+    Write-Host "  [!] WiFi adapter not found" -ForegroundColor Yellow
 }
 
 # ============================================================================
@@ -254,8 +264,8 @@ if (-not $wifiAdapter) {
     $wifiAdapter = Get-NetAdapter -Physical | Where-Object { $_.MediaType -eq "802.3" -or $_.MediaType -eq "Native 802.11" } | Select-Object -First 1
 }
 
-    # Trigger: Event ID 8003 (WiFi disconnected)
-    $triggerXmlDisconnect = @"
+# Trigger: Event ID 8003 (WiFi disconnected)
+$triggerXmlDisconnect = @"
 <QueryList>
   <Query Id="0" Path="Microsoft-Windows-WLAN-AutoConfig/Operational">
     <Select Path="Microsoft-Windows-WLAN-AutoConfig/Operational">
@@ -265,53 +275,53 @@ if (-not $wifiAdapter) {
 </QueryList>
 "@
 
-    $triggerDisconnect = New-CimInstance -CimClass $triggerClass -ClientOnly
-    $triggerDisconnect.Enabled = $true
-    $triggerDisconnect.Subscription = $triggerXmlDisconnect
+$triggerDisconnect = New-CimInstance -CimClass $triggerClass -ClientOnly
+$triggerDisconnect.Enabled = $true
+$triggerDisconnect.Subscription = $triggerXmlDisconnect
 
-    # Define Netsh Actions for Instant Disconnect
-    $actionDisconnect1 = New-ScheduledTaskAction -Execute "netsh.exe" -Argument "interface ip set address name=`"$($wifiAdapter.Name)`" source=static addr=$DefaultStaticIP mask=$DefaultSubnetMask gateway=$DefaultGateway"
-    $actionDisconnect2 = New-ScheduledTaskAction -Execute "netsh.exe" -Argument "interface ip set dns name=`"$($wifiAdapter.Name)`" source=static addr=$DefaultPrimaryDNS"
+# Define Netsh Actions for Instant Disconnect
+$actionDisconnect1 = New-ScheduledTaskAction -Execute "netsh.exe" -Argument "interface ip set address name=`"$($wifiAdapter.Name)`" source=static addr=$DefaultStaticIP mask=$DefaultSubnetMask gateway=$DefaultGateway"
+$actionDisconnect2 = New-ScheduledTaskAction -Execute "netsh.exe" -Argument "interface ip set dns name=`"$($wifiAdapter.Name)`" source=static addr=$DefaultPrimaryDNS"
 
-    Register-ScheduledTask `
-        -TaskName $taskNameDisconnect `
-        -Description $taskDescDisconnect `
-        -Action $actionDisconnect1, $actionDisconnect2 `
-        -Trigger $triggerDisconnect `
-        -Settings $settings `
-        -Principal $principal `
-        -Force | Out-Null
+Register-ScheduledTask `
+    -TaskName $taskNameDisconnect `
+    -Description $taskDescDisconnect `
+    -Action $actionDisconnect1, $actionDisconnect2 `
+    -Trigger $triggerDisconnect `
+    -Settings $settings `
+    -Principal $principal `
+    -Force | Out-Null
 
-    Write-Host "  [OK] Disconnect Task created (Netsh Mode)!" -ForegroundColor Green
-    Write-Host "      Triggers:" -ForegroundColor Gray
-    Write-Host "        - WiFi Event 8003 (INSTANT - Direct Netsh)" -ForegroundColor Gray
+Write-Host "  [OK] Disconnect Task created (Netsh Mode)!" -ForegroundColor Green
+Write-Host "      Triggers:" -ForegroundColor Gray
+Write-Host "        - WiFi Event 8003 (INSTANT - Direct Netsh)" -ForegroundColor Gray
 
-    # ============================================================================
-    # TEST NOW
-    # ============================================================================
+# ============================================================================
+# TEST NOW
+# ============================================================================
 
-    Write-Host "`n[STEP 4] Applying Configuration Now" -ForegroundColor Yellow
-    Write-Host "---------------------------------------------" -ForegroundColor Yellow
+Write-Host "`n[STEP 4] Applying Configuration Now" -ForegroundColor Yellow
+Write-Host "---------------------------------------------" -ForegroundColor Yellow
 
-    try {
-        & PowerShell.exe -ExecutionPolicy Bypass -File "$handlerScript"
-        Write-Host "[OK] Configuration applied!" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "[!] Error: $_" -ForegroundColor Yellow
-    }
+try {
+    & PowerShell.exe -ExecutionPolicy Bypass -File "$handlerScript"
+    Write-Host "[OK] Configuration applied!" -ForegroundColor Green
+}
+catch {
+    Write-Host "[!] Error: $_" -ForegroundColor Yellow
+}
 
-    Write-Host ""
-    Write-Host "+----------------------------------------------------------------+" -ForegroundColor Green
-    Write-Host "|    Setup Complete!                                           |" -ForegroundColor Green
-    Write-Host "+----------------------------------------------------------------+" -ForegroundColor Green
-    Write-Host ""
-    Write-Host "How it works:" -ForegroundColor Cyan
-    Write-Host "  1. Connect to WiFi -> Task triggers automatically (5s delay)" -ForegroundColor Gray
-    Write-Host "  2. Is it a company SSID? -> Apply static IP" -ForegroundColor Gray
-    Write-Host "  3. Is it unknown SSID? -> Enable DHCP" -ForegroundColor Gray
-    Write-Host "  4. No DHCP requests for company networks" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "Disconnect/reconnect to test!" -ForegroundColor Yellow
-    Write-Host ""
-    Read-Host "Press Enter to exit"
+Write-Host ""
+Write-Host "+----------------------------------------------------------------+" -ForegroundColor Green
+Write-Host "|    Setup Complete!                                           |" -ForegroundColor Green
+Write-Host "+----------------------------------------------------------------+" -ForegroundColor Green
+Write-Host ""
+Write-Host "How it works:" -ForegroundColor Cyan
+Write-Host "  1. Connect to WiFi -> Task triggers automatically (5s delay)" -ForegroundColor Gray
+Write-Host "  2. Is it a company SSID? -> Apply static IP" -ForegroundColor Gray
+Write-Host "  3. Is it unknown SSID? -> Enable DHCP" -ForegroundColor Gray
+Write-Host "  4. No DHCP requests for company networks" -ForegroundColor Gray
+Write-Host ""
+Write-Host "Disconnect/reconnect to test!" -ForegroundColor Yellow
+Write-Host ""
+Read-Host "Press Enter to exit"
