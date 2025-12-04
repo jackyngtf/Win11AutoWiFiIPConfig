@@ -305,10 +305,25 @@ Write-Host "---------------------------------------------" -ForegroundColor Yell
 
 try {
     & PowerShell.exe -ExecutionPolicy Bypass -File "$handlerScript"
-    Write-Host "[OK] Configuration applied!" -ForegroundColor Green
+    Write-Host "  [OK] WiFi Configuration applied!" -ForegroundColor Green
 }
 catch {
-    Write-Host "[!] Error: $_" -ForegroundColor Yellow
+    Write-Host "  [!] Error running WiFi handler: $_" -ForegroundColor Yellow
+}
+
+# NEW: Trigger Ethernet Handler to re-evaluate Auto-Switch logic
+$EthernetHandler = Join-Path (Split-Path -Parent $PSScriptRoot) "Ethernet\EthernetEventHandler.ps1"
+if (Test-Path $EthernetHandler) {
+    Write-Host "`n[STEP 5] Checking Ethernet State (Auto-Switch)" -ForegroundColor Yellow
+    Write-Host "---------------------------------------------" -ForegroundColor Yellow
+    Write-Host "  Triggering Ethernet Handler to check for active connection..." -ForegroundColor Cyan
+    try {
+        & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "$EthernetHandler"
+        Write-Host "  [OK] Ethernet check complete." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  [!] Failed to run Ethernet handler: $_" -ForegroundColor Red
+    }
 }
 
 Write-Host ""
