@@ -181,23 +181,6 @@ $btnApplyOverride = $Window.FindName("btnApplyOverride")
 $btnClearOverride = $Window.FindName("btnClearOverride")
 $txtOverrideStatus = $Window.FindName("txtOverrideStatus")
 
-$txtOutput = $Window.FindName("txtOutput")
-$btnClearOutput = $Window.FindName("btnClearOutput")
-
-# 6. Create System Tray Icon
-$script:NotifyIcon = New-Object System.Windows.Forms.NotifyIcon
-$script:NotifyIcon.Text = "Network Automation Manager"
-$script:NotifyIcon.Visible = $false
-
-try {
-    $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Shield
-}
-catch {
-    $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Application
-}
-
-# Tray Context Menu
-$TrayMenu = New-Object System.Windows.Forms.ContextMenuStrip
 $TrayMenuOpen = $TrayMenu.Items.Add("Open Dashboard")
 $TrayMenuExit = $TrayMenu.Items.Add("Exit")
 $script:NotifyIcon.ContextMenuStrip = $TrayMenu
