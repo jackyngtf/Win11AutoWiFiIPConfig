@@ -155,7 +155,7 @@ Add-Type -AssemblyName System.Drawing
 
         <!-- Footer -->
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center">
-            <TextBlock Text="v1.1 - Zero DHCP Strategy | " Foreground="#555555" FontSize="10"/>
+            <TextBlock Text="v1.2 - Zero DHCP Strategy | " Foreground="#555555" FontSize="10"/>
             <TextBlock Name="txtTrayHint" Text="Minimize to move to system tray" Foreground="#555555" FontSize="10"/>
         </StackPanel>
     </Grid>
@@ -189,7 +189,6 @@ $script:NotifyIcon = New-Object System.Windows.Forms.NotifyIcon
 $script:NotifyIcon.Text = "Network Automation Manager"
 $script:NotifyIcon.Visible = $false
 
-# Create icon from embedded base64 or use default
 try {
     $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Shield
 }
@@ -225,10 +224,12 @@ $script:NotifyIcon.Add_DoubleClick({
     })
 
 # 7. Helper Functions
-function Write-Output-Log ($Message, $Color = "White") {
-    $Timestamp = Get-Date -Format "HH:mm:ss"
-    $txtOutput.AppendText("[$Timestamp] $Message`r`n")
-    $txtOutput.ScrollToEnd()
+function Write-Output-Log ($Message) {
+    $Window.Dispatcher.Invoke([action] {
+            $Timestamp = Get-Date -Format "HH:mm:ss"
+            $txtOutput.AppendText("[$Timestamp] $Message`r`n")
+            $txtOutput.ScrollToEnd()
+        })
 }
 
 function Update-Status {
@@ -261,55 +262,123 @@ function Update-Status {
     }
 }
 
-function Run-Script ($ScriptPath, $Args = "") {
+# ASYNC Script Execution using Runspaces
+function Run-Script-Async ($ScriptPath, $Args = "") {
     $SrcRoot = Split-Path -Parent $PSScriptRoot
     $FullScriptPath = Join-Path $SrcRoot $ScriptPath
-    if (Test-Path $FullScriptPath) {
-        Write-Output-Log "Running: $ScriptPath $Args"
-        Write-Output-Log "----------------------------------------"
-        
-        try {
-            # Run script and capture output
-            # Fix: Only split if Args is a non-empty string
-            if ($Args -and ($Args -is [string]) -and ($Args.Trim())) {
-                $ArgArray = $Args.Trim().Split(" ", [StringSplitOptions]::RemoveEmptyEntries)
-                $Output = & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "$FullScriptPath" $ArgArray 2>&1
-            }
-            else {
-                $Output = & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File "$FullScriptPath" 2>&1
-            }
-            foreach ($Line in $Output) {
-                Write-Output-Log $Line.ToString()
-            }
-            Write-Output-Log "----------------------------------------"
-            Write-Output-Log "Script completed."
-        }
-        catch {
-            Write-Output-Log "ERROR: $_"
-        }
-        
-        Update-Status
-    }
-    else {
+    
+    if (-not (Test-Path $FullScriptPath)) {
         Write-Output-Log "ERROR: Script not found: $FullScriptPath"
+        return
     }
+    
+    Write-Output-Log "Running: $ScriptPath $Args"
+    Write-Output-Log "----------------------------------------"
+    
+    # Create runspace for async execution
+    $Runspace = [runspacefactory]::CreateRunspace()
+    $Runspace.ApartmentState = "STA"
+    $Runspace.ThreadOptions = "ReuseThread"
+    $Runspace.Open()
+    
+    # Share variables with runspace
+    $Runspace.SessionStateProxy.SetVariable("FullScriptPath", $FullScriptPath)
+    $Runspace.SessionStateProxy.SetVariable("Args", $Args)
+    $Runspace.SessionStateProxy.SetVariable("Window", $Window)
+    $Runspace.SessionStateProxy.SetVariable("txtOutput", $txtOutput)
+    
+    # Create PowerShell command
+    $PowerShell = [powershell]::Create()
+    $PowerShell.Runspace = $Runspace
+    
+    # Script to run in background
+    [void]$PowerShell.AddScript({
+            param($FullScriptPath, $Args, $Window, $txtOutput)
+        
+            function Write-Log ($Message) {
+                $Window.Dispatcher.Invoke([action] {
+                        $Timestamp = Get-Date -Format "HH:mm:ss"
+                        $txtOutput.AppendText("[$Timestamp] $Message`r`n")
+                        $txtOutput.ScrollToEnd()
+                    })
+            }
+        
+            try {
+                # Build arguments
+                if ($Args -and ($Args -is [string]) -and ($Args.Trim())) {
+                    $ArgArray = $Args.Trim().Split(" ", [StringSplitOptions]::RemoveEmptyEntries)
+                    $Output = & $FullScriptPath @ArgArray 2>&1
+                }
+                else {
+                    $Output = & $FullScriptPath 2>&1
+                }
+            
+                # Stream output in real-time
+                foreach ($Line in $Output) {
+                    Write-Log $Line.ToString()
+                }
+            
+                Write-Log "----------------------------------------"
+                Write-Log "Script completed successfully"
+            }
+            catch {
+                Write-Log "ERROR: $_"
+            }
+        
+            # Refresh status on UI thread
+            $Window.Dispatcher.Invoke([action] {
+                    # Update status
+                    if (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue) {
+                        $EthernetStatus = $Window.FindName("txtEthernetStatus")
+                        $EthernetStatus.Text = "INSTALLED"
+                        $EthernetStatus.Foreground = "LightGreen"
+                        ($Window.FindName("btnInstallEthernet")).IsEnabled = $false
+                        ($Window.FindName("btnUninstallEthernet")).IsEnabled = $true
+                    }
+                    else {
+                        $EthernetStatus = $Window.FindName("txtEthernetStatus")
+                        $EthernetStatus.Text = "NOT INSTALLED"
+                        $EthernetStatus.Foreground = "Red"
+                        ($Window.FindName("btnInstallEthernet")).IsEnabled = $true
+                        ($Window.FindName("btnUninstallEthernet")).IsEnabled = $false
+                    }
+            
+                    if (Get-ScheduledTask -TaskName "WiFi-AutoConfig-Connect" -ErrorAction SilentlyContinue) {
+                        $WiFiStatus = $Window.FindName("txtWiFiStatus")
+                        $WiFiStatus.Text = "INSTALLED"
+                        $WiFiStatus.Foreground = "LightGreen"
+                        ($Window.FindName("btnInstallWiFi")).IsEnabled = $false
+                        ($Window.FindName("btnUninstallWiFi")).IsEnabled = $true
+                    }
+                    else {
+                        $WiFiStatus = $Window.FindName("txtWiFiStatus")
+                        $WiFiStatus.Text = "NOT INSTALLED"
+                        $WiFiStatus.Foreground = "Red"
+                        ($Window.FindName("btnInstallWiFi")).IsEnabled = $true
+                        ($Window.FindName("btnUninstallWiFi")).IsEnabled = $false
+                    }
+                })
+        }).AddArgument($FullScriptPath).AddArgument($Args).AddArgument($Window).AddArgument($txtOutput)
+    
+    # Start async execution
+    [void]$PowerShell.BeginInvoke()
 }
 
 # 8. Event Handlers
 $btnInstallEthernet.Add_Click({
-        Run-Script "Ethernet\Setup-EthernetEventTrigger.ps1"
+        Run-Script-Async "Ethernet\Setup-EthernetEventTrigger.ps1"
     })
 
 $btnUninstallEthernet.Add_Click({
-        Run-Script "Ethernet\Uninstall-EthernetEventTrigger.ps1"
+        Run-Script-Async "Ethernet\Uninstall-EthernetEventTrigger.ps1"
     })
 
 $btnInstallWiFi.Add_Click({
-        Run-Script "WiFi\Setup-NetworkEventTrigger.ps1"
+        Run-Script-Async "WiFi\Setup-NetworkEventTrigger.ps1"
     })
 
 $btnUninstallWiFi.Add_Click({
-        Run-Script "WiFi\Uninstall-NetworkEventTrigger.ps1"
+        Run-Script-Async "WiFi\Uninstall-NetworkEventTrigger.ps1"
     })
 
 $btnApplyOverride.Add_Click({
@@ -317,13 +386,13 @@ $btnApplyOverride.Add_Click({
         $DurationStr = $cmbDuration.Text.Split(" ")[0]
         $Duration = [int]$DurationStr
     
-        Run-Script "Set-DhcpOverride.ps1" "-Interface $Interface -Days $Duration"
+        Run-Script-Async "Set-DhcpOverride.ps1" "-Interface $Interface -Days $Duration"
         $txtOverrideStatus.Text = "Override applied for $Interface ($Duration Days)"
     })
 
 $btnClearOverride.Add_Click({
         $Interface = $cmbInterface.Text
-        Run-Script "Set-DhcpOverride.ps1" "-Interface $Interface -Clear"
+        Run-Script-Async "Set-DhcpOverride.ps1" "-Interface $Interface -Clear"
         $txtOverrideStatus.Text = "Override cleared for $Interface"
     })
 
