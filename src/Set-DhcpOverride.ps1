@@ -80,7 +80,31 @@ function Enable-DhcpNow ($InterfaceAlias) {
     }
 }
 
+# Helper to check if automation is actually set up
+function Test-SetupStatus ($Target) {
+    if ($Target -eq "Ethernet" -or $Target -eq "All") {
+        if (-not (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue)) {
+            Write-Warning "Ethernet automation is NOT set up."
+            Write-Warning "Please run 'src\Ethernet\Setup-EthernetEventTrigger.ps1' first."
+            return $false
+        }
+    }
+    if ($Target -eq "Wi-Fi" -or $Target -eq "All") {
+        if (-not (Get-ScheduledTask -TaskName "WiFi-AutoConfig-Connect" -ErrorAction SilentlyContinue)) {
+            Write-Warning "WiFi automation is NOT set up."
+            Write-Warning "Please run 'src\WiFi\Setup-NetworkEventTrigger.ps1' first."
+            return $false
+        }
+    }
+    return $true
+}
+
 # Main Logic
+if (-not (Test-SetupStatus $Interface)) {
+    Write-Error "Setup validation failed. No changes made."
+    exit
+}
+
 $State = Get-State
 
 # Determine target interfaces
