@@ -13,7 +13,6 @@ $principal = New-Object System.Security.Principal.WindowsPrincipal($currentUser)
 if (-not $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "[ERROR] This script must be run as Administrator!" -ForegroundColor Red
     Write-Host "Please run PowerShell as Administrator and try again." -ForegroundColor Yellow
-    Read-Host "Press Enter to exit"
     exit 1
 }
 
@@ -133,4 +132,5 @@ Write-Host "  If in office: Set Static IP BEFORE connecting to company WiFi." -F
 Write-Host "  If not in office: Safe to connect to any network." -ForegroundColor White
 Write-Host "================================================================" -ForegroundColor Green
 Write-Host ""
-Read-Host "Press Enter to exit"
+Write-Host "================================================================" -ForegroundColor Green
+

@@ -14,8 +14,29 @@ param (
     [switch]$Clear
 )
 
+# Self-Elevation (required to see scheduled tasks and modify network settings)
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")) {
+    Write-Host "Elevating to Administrator..." -ForegroundColor Yellow
+    $ElevateArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Interface $Interface"
+    if ($Days -gt 0) { $ElevateArgs += " -Days $Days" }
+    if ($Clear) { $ElevateArgs += " -Clear" }
+    Start-Process PowerShell -Verb RunAs -ArgumentList $ElevateArgs -Wait
+    exit
+}
+
 $ScriptPath = $PSScriptRoot
 $StateFile = Join-Path $ScriptPath "DhcpOverride.state.json"
+$LogFile = Join-Path $ScriptPath "DhcpOverride.log"
+
+function Log ($Message) {
+    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Add-Content -Path $LogFile -Value "[$Timestamp] $Message"
+}
+
+Log "Starting Set-DhcpOverride.ps1"
+Log "  User: $env:USERNAME"
+Log "  Elevated: $([bool](([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator")))"
+Log "  Args: Interface=$Interface, Days=$Days, Clear=$Clear"
 
 # Helper to get current state
 function Get-State {
@@ -32,16 +53,19 @@ function Save-State ($State) {
 
 # Helper to Enable DHCP immediately
 function Enable-DhcpNow ($InterfaceAlias) {
+    Log "  Enabling DHCP on $InterfaceAlias..."
     Write-Host "  Enabling DHCP on $InterfaceAlias..." -ForegroundColor Cyan
     try {
         # NEW: Check if adapter is disabled and enable it
         $Adapter = Get-NetAdapter -Name $InterfaceAlias -ErrorAction SilentlyContinue
         if (-not $Adapter) {
+            Log "  [ERROR] Adapter '$InterfaceAlias' not found"
             Write-Host "  [ERROR] Adapter '$InterfaceAlias' not found" -ForegroundColor Red
             return
         }
         
         if ($Adapter.Status -eq "Disabled") {
+            Log "    [!] Adapter is disabled. Enabling..."
             Write-Host "    [!] Adapter is disabled (possibly by Ethernet auto-switch). Enabling..." -ForegroundColor Yellow
             Enable-NetAdapter -Name $InterfaceAlias -Confirm:$false
             Start-Sleep -Seconds 2
@@ -73,127 +97,141 @@ function Enable-DhcpNow ($InterfaceAlias) {
         Write-Host "    Requesting DHCP lease..." -ForegroundColor Gray
         ipconfig /renew "$InterfaceAlias" | Out-Null
         
+        Log "  [OK] DHCP Enabled and configured."
         Write-Host "  [OK] DHCP Enabled and configured." -ForegroundColor Green
     }
     catch {
+        Log "  [ERROR] Failed to enable DHCP: $_"
         Write-Host "  [ERROR] Failed to enable DHCP: $_" -ForegroundColor Red
     }
 }
 
 # Main Logic
-$State = Get-State
-
-# 1. Determine Requested Targets
-$RequestedTargets = @()
-if ($Interface -eq "All") {
-    $RequestedTargets += "Wi-Fi"
-    $RequestedTargets += "Ethernet"
-}
-else {
-    $RequestedTargets += $Interface
-}
-
-# 2. Validate Targets (Partial Success Logic)
-$Targets = @()
-
-foreach ($Target in $RequestedTargets) {
-    $IsValid = $true
+try {
+    $State = Get-State
     
-    if ($Target -eq "Ethernet") {
-        if (-not (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue)) {
-            Write-Host "WARNING: Ethernet automation is NOT set up. Skipping Ethernet." -ForegroundColor Yellow
-            Write-Host "Please run 'src\Ethernet\Setup-EthernetEventTrigger.ps1' to enable Ethernet control." -ForegroundColor Gray
-            $IsValid = $false
-        }
+    # 1. Determine Requested Targets
+    $RequestedTargets = @()
+    if ($Interface -eq "All") {
+        $RequestedTargets += "Wi-Fi"
+        $RequestedTargets += "Ethernet"
     }
-    elseif ($Target -eq "Wi-Fi") {
-        if (-not (Get-ScheduledTask -TaskName "WiFi-AutoConfig-Connect" -ErrorAction SilentlyContinue)) {
-            Write-Host "WARNING: WiFi automation is NOT set up. Skipping WiFi." -ForegroundColor Yellow
-            Write-Host "Please run 'src\WiFi\Setup-NetworkEventTrigger.ps1' to enable WiFi control." -ForegroundColor Gray
-            $IsValid = $false
-        }
+    else {
+        $RequestedTargets += $Interface
     }
     
-    if ($IsValid) {
-        $Targets += $Target
-    }
-}
-
-# 3. Check if we have ANY valid targets
-if ($Targets.Count -eq 0) {
-    Write-Host "No valid interfaces found to override. Setup validation failed." -ForegroundColor Red
-    exit
-}
-
-if ($Clear) {
-    Write-Host "Clearing DHCP Override for: $Interface" -ForegroundColor Yellow
-    foreach ($Target in $Targets) {
-        if ($State.PSObject.Properties.Match($Target).Count) {
-            $State.PSObject.Properties.Remove($Target)
-            Write-Host "  Removed override for $Target."
-        }
-    }
-    Save-State $State
+    # 2. Validate Targets (Partial Success Logic)
+    $Targets = @()
     
-    # NEW: Immediately trigger handler scripts to reapply static IP
-    Write-Host "`nTriggering configuration update to reapply static IP..." -ForegroundColor Cyan
-    
-    foreach ($Target in $Targets) {
-        if ($Target -eq "Wi-Fi") {
-            $HandlerScript = Join-Path $ScriptPath "WiFi\NetworkEventHandler.ps1"
-            if (Test-Path $HandlerScript) {
-                Write-Host "  Running WiFi handler..." -ForegroundColor Gray
-                & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File $HandlerScript -TriggerEvent "Auto"
-            }
-        }
-        elseif ($Target -eq "Ethernet") {
-            $HandlerScript = Join-Path $ScriptPath "Ethernet\EthernetEventHandler.ps1"
-            if (Test-Path $HandlerScript) {
-                Write-Host "  Running Ethernet handler..." -ForegroundColor Gray
-                & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File $HandlerScript
-            }
-        }
-    }
-    
-    Write-Host "`nDone. Static IP configuration has been reapplied." -ForegroundColor Green
-}
-else {
-    if ($Days -le 0) {
-        Write-Error "Please specify a valid number of days (e.g., -Days 1)."
-        exit
-    }
-
-    $ExpiryDate = (Get-Date).AddDays($Days)
-    Write-Host "Setting DHCP Override for: $Interface" -ForegroundColor Cyan
-    Write-Host "  Duration: $Days days"
-    Write-Host "  Expires:  $($ExpiryDate.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Yellow
-
-    foreach ($Target in $Targets) {
-        # Update State
-        if (-not $State.PSObject.Properties.Match($Target).Count) {
-            $State | Add-Member -MemberType NoteProperty -Name $Target -Value $ExpiryDate.ToString("o")
-        }
-        else {
-            $State.$Target = $ExpiryDate.ToString("o")
-        }
-        
-        # Apply Immediately
-        # Find actual adapter name (handle "Ethernet" vs "Ethernet 2" etc if needed, but usually alias is fixed)
-        # For Ethernet, we might need to find all 802.3 adapters if "Ethernet" is generic.
-        # But for simplicity, we assume standard aliases or we search.
+    foreach ($Target in $RequestedTargets) {
+        $IsValid = $true
         
         if ($Target -eq "Ethernet") {
-            # Apply to ALL Ethernet adapters
-            $Adapters = Get-NetAdapter | Where-Object { $_.PhysicalMediaType -eq "802.3" }
-            foreach ($Adapter in $Adapters) {
-                Enable-DhcpNow $Adapter.Name
+            if (-not (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue)) {
+                Log "WARNING: Ethernet automation is NOT set up. Skipping Ethernet."
+                Write-Host "WARNING: Ethernet automation is NOT set up. Skipping Ethernet." -ForegroundColor Yellow
+                $IsValid = $false
             }
         }
         elseif ($Target -eq "Wi-Fi") {
-            Enable-DhcpNow "Wi-Fi"
+            if (-not (Get-ScheduledTask -TaskName "WiFi-AutoConfig-Connect" -ErrorAction SilentlyContinue)) {
+                Log "WARNING: WiFi automation is NOT set up. Skipping WiFi."
+                Write-Host "WARNING: WiFi automation is NOT set up. Skipping WiFi." -ForegroundColor Yellow
+                $IsValid = $false
+            }
+        }
+        
+        if ($IsValid) {
+            $Targets += $Target
         }
     }
     
-    Save-State $State
-    Write-Host "Override Saved." -ForegroundColor Green
+    # 3. Check if we have ANY valid targets
+    if ($Targets.Count -eq 0) {
+        Log "No valid interfaces found to override. Setup validation failed."
+        Write-Host "No valid interfaces found to override. Setup validation failed." -ForegroundColor Red
+        exit
+    }
+    
+    if ($Clear) {
+        Log "Clearing DHCP Override for: $Interface"
+        Write-Host "Clearing DHCP Override for: $Interface" -ForegroundColor Yellow
+        foreach ($Target in $Targets) {
+            if ($State.PSObject.Properties.Match($Target).Count) {
+                $State.PSObject.Properties.Remove($Target)
+                Log "  Removed override for $Target."
+                Write-Host "  Removed override for $Target."
+            }
+        }
+        Save-State $State
+        
+        # NEW: Immediately trigger handler scripts to reapply static IP
+        Log "Triggering configuration update to reapply static IP..."
+        Write-Host "`nTriggering configuration update to reapply static IP..." -ForegroundColor Cyan
+        
+        foreach ($Target in $Targets) {
+            if ($Target -eq "Wi-Fi") {
+                $HandlerScript = Join-Path $ScriptPath "WiFi\NetworkEventHandler.ps1"
+                if (Test-Path $HandlerScript) {
+                    Log "  Running WiFi handler..."
+                    Write-Host "  Running WiFi handler..." -ForegroundColor Gray
+                    & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File $HandlerScript -TriggerEvent "Auto"
+                }
+            }
+            elseif ($Target -eq "Ethernet") {
+                $HandlerScript = Join-Path $ScriptPath "Ethernet\EthernetEventHandler.ps1"
+                if (Test-Path $HandlerScript) {
+                    Log "  Running Ethernet handler..."
+                    Write-Host "  Running Ethernet handler..." -ForegroundColor Gray
+                    & PowerShell.exe -NoProfile -ExecutionPolicy Bypass -File $HandlerScript
+                }
+            }
+        }
+        
+        Log "Done. Static IP configuration has been reapplied."
+        Write-Host "`nDone. Static IP configuration has been reapplied." -ForegroundColor Green
+    }
+    else {
+        if ($Days -le 0) {
+            Log "Invalid days: $Days"
+            Write-Error "Please specify a valid number of days (e.g., -Days 1)."
+            exit
+        }
+    
+        $ExpiryDate = (Get-Date).AddDays($Days)
+        Log "Setting DHCP Override for: $Interface, Duration: $Days days, Expires: $ExpiryDate"
+        Write-Host "Setting DHCP Override for: $Interface" -ForegroundColor Cyan
+        Write-Host "  Duration: $Days days"
+        Write-Host "  Expires:  $($ExpiryDate.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Yellow
+    
+        foreach ($Target in $Targets) {
+            # Update State
+            if (-not $State.PSObject.Properties.Match($Target).Count) {
+                $State | Add-Member -MemberType NoteProperty -Name $Target -Value $ExpiryDate.ToString("o")
+            }
+            else {
+                $State.$Target = $ExpiryDate.ToString("o")
+            }
+            
+            # Apply Immediately
+            if ($Target -eq "Ethernet") {
+                # Apply to ALL Ethernet adapters
+                $Adapters = Get-NetAdapter | Where-Object { $_.PhysicalMediaType -eq "802.3" }
+                foreach ($Adapter in $Adapters) {
+                    Enable-DhcpNow $Adapter.Name
+                }
+            }
+            elseif ($Target -eq "Wi-Fi") {
+                Enable-DhcpNow "Wi-Fi"
+            }
+        }
+        
+        Save-State $State
+        Log "Override Saved."
+        Write-Host "Override Saved." -ForegroundColor Green
+    }
+}
+catch {
+    Log "FATAL ERROR: $_"
+    throw
 }

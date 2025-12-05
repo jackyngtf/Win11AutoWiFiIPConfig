@@ -19,7 +19,7 @@ Add-Type -AssemblyName System.Drawing
 [xml]$Xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Network Automation Manager" Height="650" Width="750"
+        Title="Network Automation Manager" Height="450" Width="750"
         WindowStartupLocation="CenterScreen" ResizeMode="CanMinimize"
         Background="#1E1E1E" Foreground="White">
     <Window.Resources>
@@ -50,111 +50,101 @@ Add-Type -AssemblyName System.Drawing
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
     </Window.Resources>
-
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
-
-        <!-- Header -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
             <TextBlock Text="Network Automation Manager" FontSize="24" FontWeight="Bold" Foreground="#00CED1"/>
         </StackPanel>
-
-        <!-- Main Content -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-
-            <!-- Ethernet Section -->
-            <GroupBox Header="Ethernet Automation" Grid.Row="0" Grid.Column="0">
+            <GroupBox Header="Ethernet Automation" Name="gbEthernet" Grid.Column="0" Margin="5">
                 <StackPanel Margin="10">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <TextBlock Text="Status: " FontWeight="Bold"/>
-                        <TextBlock Name="txtEthernetStatus" Text="Checking..." Foreground="Gray"/>
+                        <TextBlock Name="txtEthernetStatus" Text="CHECKING..." Foreground="Yellow" FontWeight="Bold"/>
                     </StackPanel>
+                    
                     <Button Name="btnInstallEthernet" Content="Install Automation"/>
                     <Button Name="btnUninstallEthernet" Content="Uninstall Automation"/>
+                    
+                    <!-- Ethernet Override -->
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Name="pnlEthApply" Orientation="Horizontal" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="Override for " FontSize="12"/>
+                            <TextBox Name="txtEthDuration" Text="1" Width="30" Height="22" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                            <TextBlock Text=" Days" FontSize="12"/>
+                        </StackPanel>
+                        <Button Name="btnEthApplyOverride" Content="Apply" Grid.Column="1" Width="60" Height="26" FontSize="12" Padding="0"/>
+                        <Button Name="btnEthClearOverride" Content="CLEAR OVERRIDE" Grid.ColumnSpan="2" Height="26" Background="#8B0000" Visibility="Collapsed" FontSize="12" Padding="0"/>
+                    </Grid>
+                    <TextBlock Name="txtEthOverrideStatus" Text="" Foreground="Gray" FontSize="10" Margin="0,5,0,0" HorizontalAlignment="Right"/>
                 </StackPanel>
             </GroupBox>
 
-            <!-- WiFi Section -->
-            <GroupBox Header="WiFi Automation" Grid.Row="0" Grid.Column="1">
+            <GroupBox Header="WiFi Automation" Name="gbWiFi" Grid.Column="1" Margin="5">
                 <StackPanel Margin="10">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                         <TextBlock Text="Status: " FontWeight="Bold"/>
-                        <TextBlock Name="txtWiFiStatus" Text="Checking..." Foreground="Gray"/>
+                        <TextBlock Name="txtWiFiStatus" Text="CHECKING..." Foreground="Yellow" FontWeight="Bold"/>
                     </StackPanel>
+                    
                     <Button Name="btnInstallWiFi" Content="Install Automation"/>
                     <Button Name="btnUninstallWiFi" Content="Uninstall Automation"/>
-                </StackPanel>
-            </GroupBox>
-
-            <!-- DHCP Override Section -->
-            <GroupBox Header="Temporary DHCP Override" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
-                <StackPanel Margin="10">
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        
-                        <TextBlock Text="Interface:" Grid.Column="0" Margin="0,0,10,0"/>
-                        <ComboBox Name="cmbInterface" Grid.Column="1" Margin="0,0,20,0" Height="25">
-                            <ComboBoxItem Content="Ethernet"/>
-                            <ComboBoxItem Content="Wi-Fi"/>
-                            <ComboBoxItem Content="All" IsSelected="True"/>
-                        </ComboBox>
-
-                        <TextBlock Text="Duration:" Grid.Column="2" Margin="0,0,10,0"/>
-                        <ComboBox Name="cmbDuration" Grid.Column="3" Height="25">
-                            <ComboBoxItem Content="1 Day" IsSelected="True"/>
-                            <ComboBoxItem Content="3 Days"/>
-                            <ComboBoxItem Content="7 Days"/>
-                            <ComboBoxItem Content="30 Days"/>
-                        </ComboBox>
-                    </Grid>
                     
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <Button Name="btnApplyOverride" Content="Apply Override" Width="150" Background="#008B8B"/>
-                        <Button Name="btnClearOverride" Content="Clear Override" Width="150" Background="#8B0000"/>
-                    </StackPanel>
-                    <TextBlock Name="txtOverrideStatus" Text="" HorizontalAlignment="Center" Margin="0,10,0,0" Foreground="Yellow"/>
+                    <!-- WiFi Override -->
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Name="pnlWiFiApply" Orientation="Horizontal" Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <TextBlock Text="Override for " FontSize="12"/>
+                            <TextBox Name="txtWiFiDuration" Text="1" Width="30" Height="22" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
+                            <TextBlock Text=" Days" FontSize="12"/>
+                        </StackPanel>
+                        <Button Name="btnWiFiApplyOverride" Content="Apply" Grid.Column="1" Width="60" Height="26" FontSize="12" Padding="0"/>
+                        <Button Name="btnWiFiClearOverride" Content="CLEAR OVERRIDE" Grid.ColumnSpan="2" Height="26" Background="#8B0000" Visibility="Collapsed" FontSize="12" Padding="0"/>
+                    </Grid>
+                    <TextBlock Name="txtWiFiOverrideStatus" Text="" Foreground="Gray" FontSize="10" Margin="0,5,0,0" HorizontalAlignment="Right"/>
                 </StackPanel>
             </GroupBox>
         </Grid>
 
-        <!-- Output Panel -->
-        <GroupBox Header="Output Log" Grid.Row="2" Margin="10">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <TextBox Name="txtOutput" Grid.Row="0" 
-                         Background="#0C0C0C" Foreground="#00FF00" 
-                         FontFamily="Consolas" FontSize="12"
-                         IsReadOnly="True" TextWrapping="Wrap" 
-                         VerticalScrollBarVisibility="Auto"
-                         AcceptsReturn="True" Padding="5"/>
-                <Button Name="btnClearOutput" Grid.Row="1" Content="Clear Log" 
-                        HorizontalAlignment="Right" Margin="5" Width="100"/>
+        <GroupBox Header="Device Information" Grid.Row="2" Margin="5">
+            <Grid Margin="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Text="Device Name:" Grid.Column="0" FontWeight="Bold" Margin="0,0,5,0"/>
+                <TextBlock Name="txtDeviceName" Text="Loading..." Grid.Column="1" Margin="0,0,20,0"/>
+                
+                <TextBlock Text="Ethernet IP:" Grid.Column="2" FontWeight="Bold" Margin="0,0,5,0"/>
+                <TextBlock Name="txtEthernetIP" Text="Loading..." Grid.Column="3" Margin="0,0,20,0" Foreground="#00FF00"/>
+                
+                <TextBlock Text="WiFi IP:" Grid.Column="4" FontWeight="Bold" Margin="0,0,5,0"/>
+                <TextBlock Name="txtWiFiIP" Text="Loading..." Grid.Column="5" Margin="0,0,0,0" Foreground="#00FF00"/>
             </Grid>
         </GroupBox>
 
-        <!-- Footer -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
             <TextBlock Text="v0.0.1 (Alpha) - Zero DHCP Strategy | " Foreground="#555555" FontSize="10"/>
             <TextBlock Name="txtTrayHint" Text="Minimize to move to system tray" Foreground="#555555" FontSize="10"/>
         </StackPanel>
@@ -170,49 +160,36 @@ $Window = [Windows.Markup.XamlReader]::Load($Reader)
 $txtEthernetStatus = $Window.FindName("txtEthernetStatus")
 $btnInstallEthernet = $Window.FindName("btnInstallEthernet")
 $btnUninstallEthernet = $Window.FindName("btnUninstallEthernet")
-
 $txtWiFiStatus = $Window.FindName("txtWiFiStatus")
 $btnInstallWiFi = $Window.FindName("btnInstallWiFi")
 $btnUninstallWiFi = $Window.FindName("btnUninstallWiFi")
+$pnlEthApply = $Window.FindName("pnlEthApply")
+$txtEthDuration = $Window.FindName("txtEthDuration")
+$btnEthApplyOverride = $Window.FindName("btnEthApplyOverride")
+$btnEthClearOverride = $Window.FindName("btnEthClearOverride")
+$txtEthOverrideStatus = $Window.FindName("txtEthOverrideStatus")
 
-$cmbInterface = $Window.FindName("cmbInterface")
-$cmbDuration = $Window.FindName("cmbDuration")
-$btnApplyOverride = $Window.FindName("btnApplyOverride")
-$btnClearOverride = $Window.FindName("btnClearOverride")
-$txtOverrideStatus = $Window.FindName("txtOverrideStatus")
-
-$txtOutput = $Window.FindName("txtOutput")
-$btnClearOutput = $Window.FindName("btnClearOutput")
+$pnlWiFiApply = $Window.FindName("pnlWiFiApply")
+$txtWiFiDuration = $Window.FindName("txtWiFiDuration")
+$btnWiFiApplyOverride = $Window.FindName("btnWiFiApplyOverride")
+$btnWiFiClearOverride = $Window.FindName("btnWiFiClearOverride")
+$txtWiFiOverrideStatus = $Window.FindName("txtWiFiOverrideStatus")
+$txtDeviceName = $Window.FindName("txtDeviceName")
+$txtEthernetIP = $Window.FindName("txtEthernetIP")
+$txtWiFiIP = $Window.FindName("txtWiFiIP")
 
 # 6. Create System Tray Icon
 $script:NotifyIcon = New-Object System.Windows.Forms.NotifyIcon
 $script:NotifyIcon.Text = "Network Automation Manager"
 $script:NotifyIcon.Visible = $false
+try { $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Information }
+catch { $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Application }
 
-# Try multiple icon sources to ensure visibility
-try {
-    # Attempt 1: Information Icon (High visibility)
-    $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Information
-}
-catch {
-    try {
-        # Attempt 2: PowerShell Icon
-        $PSExe = (Get-Process -Id $PID).Path
-        $script:NotifyIcon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($PSExe)
-    }
-    catch {
-        # Attempt 3: Application Icon (Fallback)
-        $script:NotifyIcon.Icon = [System.Drawing.SystemIcons]::Application
-    }
-}
-
-# Tray Context Menu
 $TrayMenu = New-Object System.Windows.Forms.ContextMenuStrip
 $TrayMenuOpen = $TrayMenu.Items.Add("Open Dashboard")
 $TrayMenuExit = $TrayMenu.Items.Add("Exit")
 $script:NotifyIcon.ContextMenuStrip = $TrayMenu
 
-# Tray Events
 $TrayMenuOpen.Add_Click({
         $Window.Show()
         $Window.WindowState = 'Normal'
@@ -224,6 +201,7 @@ $TrayMenuExit.Add_Click({
         $script:NotifyIcon.Visible = $false
         $script:NotifyIcon.Dispose()
         $Window.Close()
+        [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
     })
 
 $script:NotifyIcon.Add_DoubleClick({
@@ -234,16 +212,171 @@ $script:NotifyIcon.Add_DoubleClick({
     })
 
 # 7. Helper Functions
-function Write-Output-Log ($Message) {
-    $Window.Dispatcher.Invoke([action] {
-            $Timestamp = Get-Date -Format "HH:mm:ss"
-            $txtOutput.AppendText("[$Timestamp] $Message`r`n")
-            $txtOutput.ScrollToEnd()
-        })
+$script:CachedOverrideState = $null
+
+function Refresh-OverrideState {
+    $ScriptDir = Split-Path -Parent $PSCommandPath
+    $SrcDir = Split-Path -Parent $ScriptDir
+    $StateFile = Join-Path $SrcDir "DhcpOverride.state.json"
+    
+    if (Test-Path $StateFile) {
+        try {
+            $script:CachedOverrideState = Get-Content $StateFile -Raw | ConvertFrom-Json
+        }
+        catch { $script:CachedOverrideState = $null }
+    }
+    else {
+        $script:CachedOverrideState = $null
+    }
+}
+
+function Update-EthernetUI {
+    $State = $script:CachedOverrideState
+    $Now = Get-Date
+    $IsActive = $false
+    $ExpiryText = ""
+
+    if ($State -and $State.Ethernet) {
+        try {
+            $Expiry = [DateTime]$State.Ethernet
+            if ($Expiry -gt $Now) {
+                $IsActive = $true
+                $TimeLeft = $Expiry - $Now
+                if ($TimeLeft.TotalDays -ge 1) {
+                    $ExpiryText = "Expires in $([math]::Round($TimeLeft.TotalDays, 1)) days"
+                }
+                else {
+                    $ExpiryText = "Expires in $([math]::Round($TimeLeft.TotalHours, 1)) hours"
+                }
+            }
+        }
+        catch {}
+    }
+
+    if ($IsActive) {
+        $pnlEthApply.Visibility = "Collapsed"
+        $btnEthApplyOverride.Visibility = "Collapsed"
+        $btnEthClearOverride.Visibility = "Visible"
+        $txtEthOverrideStatus.Text = $ExpiryText
+        $txtEthOverrideStatus.Foreground = "LightGreen"
+    }
+    else {
+        $pnlEthApply.Visibility = "Visible"
+        $btnEthApplyOverride.Visibility = "Visible"
+        $btnEthClearOverride.Visibility = "Collapsed"
+        if ($txtEthOverrideStatus.Text -notlike "Applying*" -and $txtEthOverrideStatus.Text -notlike "Clearing*") {
+            $txtEthOverrideStatus.Text = ""
+        }
+    }
+}
+
+function Update-WiFiUI {
+    $State = $script:CachedOverrideState
+    $Now = Get-Date
+    $IsActive = $false
+    $ExpiryText = ""
+
+    if ($State -and $State.'Wi-Fi') {
+        try {
+            $Expiry = [DateTime]$State.'Wi-Fi'
+            if ($Expiry -gt $Now) {
+                $IsActive = $true
+                $TimeLeft = $Expiry - $Now
+                if ($TimeLeft.TotalDays -ge 1) {
+                    $ExpiryText = "Expires in $([math]::Round($TimeLeft.TotalDays, 1)) days"
+                }
+                else {
+                    $ExpiryText = "Expires in $([math]::Round($TimeLeft.TotalHours, 1)) hours"
+                }
+            }
+        }
+        catch {}
+    }
+
+    if ($IsActive) {
+        $pnlWiFiApply.Visibility = "Collapsed"
+        $btnWiFiApplyOverride.Visibility = "Collapsed"
+        $btnWiFiClearOverride.Visibility = "Visible"
+        $txtWiFiOverrideStatus.Text = $ExpiryText
+        $txtWiFiOverrideStatus.Foreground = "LightGreen"
+    }
+    else {
+        $pnlWiFiApply.Visibility = "Visible"
+        $btnWiFiApplyOverride.Visibility = "Visible"
+        $btnWiFiClearOverride.Visibility = "Collapsed"
+        if ($txtWiFiOverrideStatus.Text -notlike "Applying*" -and $txtWiFiOverrideStatus.Text -notlike "Clearing*") {
+            $txtWiFiOverrideStatus.Text = ""
+        }
+    }
+}
+
+function Get-DeviceConfig {
+    try {
+        $ScriptDir = Split-Path -Parent $PSCommandPath
+        $SrcDir = Split-Path -Parent $ScriptDir
+        
+        $txtDeviceName.Text = $env:COMPUTERNAME
+        $txtDeviceName.Foreground = "White"
+        
+        # WiFi Config
+        $WiFiConfigPath = Join-Path $SrcDir "WiFi\NetworkConfig.ps1"
+        if (Test-Path $WiFiConfigPath) {
+            try {
+                $Content = Get-Content $WiFiConfigPath -Raw -ErrorAction Stop
+                if ($Content -match '\$DefaultStaticIP\s*=\s*"([^"]+)"') {
+                    $txtWiFiIP.Text = $matches[1]
+                    $txtWiFiIP.Foreground = "#00FF00"
+                }
+                else {
+                    $txtWiFiIP.Text = "Not Configured"
+                    $txtWiFiIP.Foreground = "Gray"
+                }
+            }
+            catch {
+                $txtWiFiIP.Text = "Read Error: $_"
+                $txtWiFiIP.Foreground = "Red"
+            }
+        }
+        else {
+            $txtWiFiIP.Text = "Config Not Found"
+            $txtWiFiIP.Foreground = "Red"
+        }
+        
+        # Ethernet Config
+        $EthernetConfigPath = Join-Path $SrcDir "Ethernet\EthernetConfig.ps1"
+        if (Test-Path $EthernetConfigPath) {
+            try {
+                $EthContent = Get-Content $EthernetConfigPath -Raw -ErrorAction Stop
+                $ComputerName = $env:COMPUTERNAME
+                if ($EthContent -match "`"$ComputerName`"\s*=\s*@\{[^}]*IPAddress\s*=\s*`"([^`"]+)`"") {
+                    $txtEthernetIP.Text = $matches[1]
+                    $txtEthernetIP.Foreground = "#00FF00"
+                }
+                else {
+                    $txtEthernetIP.Text = "No Config for $ComputerName"
+                    $txtEthernetIP.Foreground = "Yellow"
+                }
+            }
+            catch {
+                $txtEthernetIP.Text = "Read Error: $_"
+                $txtEthernetIP.Foreground = "Red"
+            }
+        }
+        else {
+            $txtEthernetIP.Text = "Config Not Found"
+            $txtEthernetIP.Foreground = "Red"
+        }
+        
+        Refresh-OverrideState
+        Update-EthernetUI
+        Update-WiFiUI
+    }
+    catch {
+        [System.Windows.Forms.MessageBox]::Show("Get-DeviceConfig Error: $_", "Config Error")
+    }
 }
 
 function Update-Status {
-    # Check Ethernet
     if (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue) {
         $txtEthernetStatus.Text = "INSTALLED"
         $txtEthernetStatus.Foreground = "LightGreen"
@@ -256,8 +389,6 @@ function Update-Status {
         $btnInstallEthernet.IsEnabled = $true
         $btnUninstallEthernet.IsEnabled = $false
     }
-
-    # Check WiFi
     if (Get-ScheduledTask -TaskName "WiFi-AutoConfig-Connect" -ErrorAction SilentlyContinue) {
         $txtWiFiStatus.Text = "INSTALLED"
         $txtWiFiStatus.Foreground = "LightGreen"
@@ -272,182 +403,163 @@ function Update-Status {
     }
 }
 
-# ASYNC Script Execution using Runspaces
-function Run-Script-Async ($ScriptPath, $Args = "") {
-    $SrcRoot = Split-Path -Parent $PSScriptRoot
+function Run-Script-Async ($ScriptPath, $ScriptArgs = "", $StatusLabelName = "") {
+    $ScriptDir = Split-Path -Parent $PSCommandPath
+    $SrcRoot = Split-Path -Parent $ScriptDir
     $FullScriptPath = Join-Path $SrcRoot $ScriptPath
     
     if (-not (Test-Path $FullScriptPath)) {
-        Write-Output-Log "ERROR: Script not found: $FullScriptPath"
+        [System.Windows.Forms.MessageBox]::Show("Script not found: $FullScriptPath", "Error")
         return
     }
     
-    Write-Output-Log "Running: $ScriptPath $Args"
-    Write-Output-Log "----------------------------------------"
+    if ($StatusLabelName) {
+        $Label = $Window.FindName($StatusLabelName)
+        $Label.Text = "RUNNING..."
+        $Label.Foreground = "Yellow"
+    }
     
-    # Create runspace for async execution
     $Runspace = [runspacefactory]::CreateRunspace()
     $Runspace.ApartmentState = "STA"
     $Runspace.ThreadOptions = "ReuseThread"
     $Runspace.Open()
-    
-    # Share variables with runspace
     $Runspace.SessionStateProxy.SetVariable("FullScriptPath", $FullScriptPath)
-    $Runspace.SessionStateProxy.SetVariable("Args", $Args)
+    $Runspace.SessionStateProxy.SetVariable("ScriptArgs", $ScriptArgs)
     $Runspace.SessionStateProxy.SetVariable("Window", $Window)
-    $Runspace.SessionStateProxy.SetVariable("txtOutput", $txtOutput)
     
-    # Create PowerShell command
     $PowerShell = [powershell]::Create()
     $PowerShell.Runspace = $Runspace
     
-    # Script to run in background
     [void]$PowerShell.AddScript({
-            param($FullScriptPath, $Args, $Window, $txtOutput)
-        
-            function Write-Log ($Message) {
-                $Window.Dispatcher.Invoke([action] {
-                        $Timestamp = Get-Date -Format "HH:mm:ss"
-                        $txtOutput.AppendText("[$Timestamp] $Message`r`n")
-                        $txtOutput.ScrollToEnd()
-                    })
-            }
-        
+            param($FullScriptPath, $ScriptArgs, $Window)
             try {
-                # Build arguments
-                if ($Args -and ($Args -is [string]) -and ($Args.Trim())) {
-                    $ArgArray = $Args.Trim().Split(" ", [StringSplitOptions]::RemoveEmptyEntries)
-                    $Output = & $FullScriptPath @ArgArray 2>&1
+                if ($ScriptArgs -and ($ScriptArgs -is [string]) -and ($ScriptArgs.Trim())) {
+                    $ArgArray = $ScriptArgs.Trim().Split(" ", [StringSplitOptions]::RemoveEmptyEntries)
+                    & $FullScriptPath @ArgArray 2>&1 | Out-Null
                 }
                 else {
-                    $Output = & $FullScriptPath 2>&1
+                    & $FullScriptPath 2>&1 | Out-Null
                 }
-            
-                # Stream output in real-time
-                foreach ($Line in $Output) {
-                    Write-Log $Line.ToString()
-                }
-            
-                Write-Log "----------------------------------------"
-                Write-Log "Script completed successfully"
             }
-            catch {
-                Write-Log "ERROR: $_"
-            }
+            catch { }
         
-            # Refresh status on UI thread
             $Window.Dispatcher.Invoke([action] {
-                    # Update status
                     if (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue) {
-                        $EthernetStatus = $Window.FindName("txtEthernetStatus")
-                        $EthernetStatus.Text = "INSTALLED"
-                        $EthernetStatus.Foreground = "LightGreen"
+                        ($Window.FindName("txtEthernetStatus")).Text = "INSTALLED"
+                        ($Window.FindName("txtEthernetStatus")).Foreground = "LightGreen"
                         ($Window.FindName("btnInstallEthernet")).IsEnabled = $false
                         ($Window.FindName("btnUninstallEthernet")).IsEnabled = $true
                     }
                     else {
-                        $EthernetStatus = $Window.FindName("txtEthernetStatus")
-                        $EthernetStatus.Text = "NOT INSTALLED"
-                        $EthernetStatus.Foreground = "Red"
+                        ($Window.FindName("txtEthernetStatus")).Text = "NOT INSTALLED"
+                        ($Window.FindName("txtEthernetStatus")).Foreground = "Red"
                         ($Window.FindName("btnInstallEthernet")).IsEnabled = $true
                         ($Window.FindName("btnUninstallEthernet")).IsEnabled = $false
                     }
-            
                     if (Get-ScheduledTask -TaskName "WiFi-AutoConfig-Connect" -ErrorAction SilentlyContinue) {
-                        $WiFiStatus = $Window.FindName("txtWiFiStatus")
-                        $WiFiStatus.Text = "INSTALLED"
-                        $WiFiStatus.Foreground = "LightGreen"
+                        ($Window.FindName("txtWiFiStatus")).Text = "INSTALLED"
+                        ($Window.FindName("txtWiFiStatus")).Foreground = "LightGreen"
                         ($Window.FindName("btnInstallWiFi")).IsEnabled = $false
                         ($Window.FindName("btnUninstallWiFi")).IsEnabled = $true
                     }
                     else {
-                        $WiFiStatus = $Window.FindName("txtWiFiStatus")
-                        $WiFiStatus.Text = "NOT INSTALLED"
-                        $WiFiStatus.Foreground = "Red"
+                        ($Window.FindName("txtWiFiStatus")).Text = "NOT INSTALLED"
+                        ($Window.FindName("txtWiFiStatus")).Foreground = "Red"
                         ($Window.FindName("btnInstallWiFi")).IsEnabled = $true
                         ($Window.FindName("btnUninstallWiFi")).IsEnabled = $false
                     }
                 })
-        }).AddArgument($FullScriptPath).AddArgument($Args).AddArgument($Window).AddArgument($txtOutput)
+        }).AddArgument($FullScriptPath).AddArgument($ScriptArgs).AddArgument($Window)
     
-    # Start async execution
     [void]$PowerShell.BeginInvoke()
 }
 
-# 8. Event Handlers
-$btnInstallEthernet.Add_Click({
-        Run-Script-Async "Ethernet\Setup-EthernetEventTrigger.ps1"
-    })
-
-$btnUninstallEthernet.Add_Click({
-        Run-Script-Async "Ethernet\Uninstall-EthernetEventTrigger.ps1"
-    })
-
-$btnInstallWiFi.Add_Click({
-        Run-Script-Async "WiFi\Setup-NetworkEventTrigger.ps1"
-    })
-
-$btnUninstallWiFi.Add_Click({
-        Run-Script-Async "WiFi\Uninstall-NetworkEventTrigger.ps1"
-    })
-
-$btnApplyOverride.Add_Click({
-        $Interface = $cmbInterface.Text
-        $DurationStr = $cmbDuration.Text.Split(" ")[0]
-        $Duration = [int]$DurationStr
+function Run-Script-External ($ScriptPath, $ScriptArgs = "") {
+    $ScriptDir = Split-Path -Parent $PSCommandPath
+    $SrcRoot = Split-Path -Parent $ScriptDir
+    $FullScriptPath = Join-Path $SrcRoot $ScriptPath
     
-        Run-Script-Async "Set-DhcpOverride.ps1" "-Interface $Interface -Days $Duration"
-        $txtOverrideStatus.Text = "Override applied for $Interface ($Duration Days)"
+    if (-not (Test-Path $FullScriptPath)) {
+        [System.Windows.Forms.MessageBox]::Show("Script not found: $FullScriptPath", "Error")
+        return
+    }
+    
+    # Use Start-Process to run in a separate process (inherits elevation)
+    # This avoids Runspace issues with modules/permissions
+    Start-Process PowerShell -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$FullScriptPath`" $ScriptArgs" -WindowStyle Hidden
+}
+
+# 8. Event Handlers
+$btnInstallEthernet.Add_Click({ Run-Script-Async "Ethernet\Setup-EthernetEventTrigger.ps1" "" "txtEthernetStatus" })
+$btnUninstallEthernet.Add_Click({ Run-Script-Async "Ethernet\Uninstall-EthernetEventTrigger.ps1" "" "txtEthernetStatus" })
+$btnInstallWiFi.Add_Click({ Run-Script-Async "WiFi\Setup-NetworkEventTrigger.ps1" "" "txtWiFiStatus" })
+$btnUninstallWiFi.Add_Click({ Run-Script-Async "WiFi\Uninstall-NetworkEventTrigger.ps1" "" "txtWiFiStatus" })
+
+$btnEthApplyOverride.Add_Click({
+        if (Get-ScheduledTask -TaskName "Ethernet-AutoConfig" -ErrorAction SilentlyContinue) {
+            $Duration = 1
+            try { $Duration = [int]$txtEthDuration.Text; if ($Duration -lt 1) { $Duration = 1 } } catch { $Duration = 1; $txtEthDuration.Text = "1" }
+            Run-Script-External "Set-DhcpOverride.ps1" "-Interface Ethernet -Days $Duration"
+            $txtEthOverrideStatus.Text = "Applying override..."
+            $txtEthOverrideStatus.Foreground = "Yellow"
+        }
+        else {
+            $txtEthOverrideStatus.Text = "Install automation first!"
+            $txtEthOverrideStatus.Foreground = "Red"
+        }
     })
 
-$btnClearOverride.Add_Click({
-        $Interface = $cmbInterface.Text
-        Run-Script-Async "Set-DhcpOverride.ps1" "-Interface $Interface -Clear"
-        $txtOverrideStatus.Text = "Override cleared for $Interface"
+$btnEthClearOverride.Add_Click({
+        Run-Script-External "Set-DhcpOverride.ps1" "-Interface Ethernet -Clear"
+        $txtEthOverrideStatus.Text = "Clearing override..."
     })
 
-$btnClearOutput.Add_Click({
-        $txtOutput.Clear()
-        Write-Output-Log "Log cleared."
+$btnWiFiApplyOverride.Add_Click({
+        if (Get-ScheduledTask -TaskName "WiFi-AutoConfig-Connect" -ErrorAction SilentlyContinue) {
+            $Duration = 1
+            try { $Duration = [int]$txtWiFiDuration.Text; if ($Duration -lt 1) { $Duration = 1 } } catch { $Duration = 1; $txtWiFiDuration.Text = "1" }
+            Run-Script-External "Set-DhcpOverride.ps1" "-Interface Wi-Fi -Days $Duration"
+            $txtWiFiOverrideStatus.Text = "Applying override..."
+            $txtWiFiOverrideStatus.Foreground = "Yellow"
+        }
+        else {
+            $txtWiFiOverrideStatus.Text = "Install automation first!"
+            $txtWiFiOverrideStatus.Foreground = "Red"
+        }
     })
 
-# 9. Window Events - Minimize to Tray
+$btnWiFiClearOverride.Add_Click({
+        Run-Script-External "Set-DhcpOverride.ps1" "-Interface Wi-Fi -Clear"
+        $txtWiFiOverrideStatus.Text = "Clearing override..."
+    })
+
+# 9. Window Events
 $Window.Add_StateChanged({
         if ($Window.WindowState -eq 'Minimized') {
             try {
-                # Make icon visible BEFORE hiding window
                 $script:NotifyIcon.Visible = $true
                 $Window.Hide()
-            
-                # Show balloon tip
-                $script:NotifyIcon.ShowBalloonTip(2000, "Network Automation Manager", "Running in background. Double-click to restore.", [System.Windows.Forms.ToolTipIcon]::Info)
-            
-                Write-Output-Log "Minimized to tray successfully."
+                $script:NotifyIcon.ShowBalloonTip(2000, "Network Automation Manager", "Running in background.", [System.Windows.Forms.ToolTipIcon]::Info)
             }
-            catch {
-                # Log error to file since UI is hidden
-                $ErrorMsg = "Error during minimize: $_"
-                Add-Content -Path "$PSScriptRoot\dashboard_error.log" -Value $ErrorMsg
-                [System.Windows.Forms.MessageBox]::Show($ErrorMsg, "Minimize Error")
-            }
+            catch { }
         }
     })
 
 $Window.Add_Closing({
         $script:NotifyIcon.Visible = $false
         $script:NotifyIcon.Dispose()
-        # Shutdown the dispatcher to exit the application
         [System.Windows.Threading.Dispatcher]::CurrentDispatcher.InvokeShutdown()
     })
 
+$Window.Add_Activated({
+        Update-Status
+        Refresh-OverrideState
+        Update-EthernetUI
+        Update-WiFiUI
+    })
+
 # 10. Initialize and Show
-Write-Output-Log "Dashboard initialized."
-Write-Output-Log "Ready to manage network automation."
 Update-Status
-
-# Use Show() instead of ShowDialog() so the window can be hidden without closing
+Get-DeviceConfig
 $Window.Show()
-
-# Run the WPF dispatcher to keep the application alive
-# This allows the tray icon to persist even when the window is hidden
 [System.Windows.Threading.Dispatcher]::Run()

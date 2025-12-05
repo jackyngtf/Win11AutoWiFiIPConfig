@@ -12,7 +12,6 @@ $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object System.Security.Principal.WindowsPrincipal($currentUser)
 if (-not $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "[ERROR] Must run as Administrator!" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
     exit 1
 }
 
@@ -25,13 +24,11 @@ $configFile = Join-Path $scriptDir "NetworkConfig.ps1"
 
 if (-not (Test-Path $configFile)) {
     Write-Host "[ERROR] NetworkConfig.ps1 not found!" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
     exit 1
 }
 
 if (-not (Test-Path $handlerScript)) {
     Write-Host "[ERROR] NetworkEventHandler.ps1 not found!" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
     exit 1
 }
 
@@ -339,4 +336,5 @@ Write-Host "  4. No DHCP requests for company networks" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Disconnect/reconnect to test!" -ForegroundColor Yellow
 Write-Host ""
-Read-Host "Press Enter to exit"
+Write-Host ""
+
